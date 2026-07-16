@@ -18,6 +18,5 @@ COPY --from=build /app/dist ./dist
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
-VOLUME ["/app/storage"]
 
 CMD ["node", "dist/main"]
