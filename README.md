@@ -113,3 +113,15 @@ The engine is [`cliper-memory`](https://www.npmjs.com/package/cliper-memory) - a
 ## License
 
 MIT (service scaffolding) · built on cliper-memory (MIT)
+
+## Run locally
+
+```bash
+npm install
+cp .env.example .env
+npm run start
+```
+
+The REST API is at `http://localhost:3000/repo`. The streamable HTTP MCP endpoint is `http://localhost:3000/mcp`.
+
+`PRECURE_PAYMENT_MODE=free` is the local default. Set it to `x402` only with the OKX payment environment variables configured. The operational testnet, deployment, and listing procedure is in [docs/OKX_LAUNCH.md](docs/OKX_LAUNCH.md).
