@@ -8,6 +8,10 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 import simpleGit from 'simple-git';
 import { Cliper } from 'cliper-memory';
+import {
+  loadConfig,
+  saveConfig,
+} from 'cliper-memory/dist/config/config';
 import type { MemoryObject } from 'cliper-memory/dist/sdk/memory/memory';
 import { AiService } from '../ai/ai.service';
 
@@ -100,6 +104,16 @@ export class RepoService {
     }
   }
 
+  private ensureLocalMemoryProvider(): void {
+    const config = loadConfig();
+    if (config.localJson?.enabled) return;
+
+    saveConfig({
+      ...config,
+      localJson: { ...config.localJson, enabled: true },
+    });
+  }
+
   async init(githubUrl: string) {
     const githubRegex = /^https:\/\/github\.com\/[^/]+\/[^/]+(?:\.git)?\/?$/;
     if (!githubRegex.test(githubUrl)) {
@@ -125,6 +139,7 @@ export class RepoService {
 
     const alreadyIndexed = await this.hasCompleteIndex(repoPath);
     if (!alreadyIndexed) {
+      this.ensureLocalMemoryProvider();
       await this.cliper.init({
         path: repoPath,
         register: false,
