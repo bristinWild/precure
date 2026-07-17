@@ -100,6 +100,7 @@ export function configurePayments(express: Express): void {
           PRICES.activity,
           'Retrieve repository activity and releases',
         ),
+        'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
       },
       resourceServer,

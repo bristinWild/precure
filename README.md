@@ -104,11 +104,11 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | `GET /repo/:repoId/gap-report` | 0.25 USDT |
 | `GET /repo/:repoId/architecture` | 0.05 USDT |
 | `GET /repo/:repoId/activity` | 0.02 USDT |
-| `POST /mcp` | 0.25 USDT |
+| `GET` or `POST /mcp` | 0.25 USDT |
 
 Important: x402 middleware prices an HTTP route, not an individual JSON-RPC tool. Consequently, the marketplace uses a single **0.25 USDT** price for each MCP-backed listing. An MCP initialization request is also a `POST /mcp` request and is therefore challenged in x402 mode.
 
-An unpaid paid request should return `402` with a `PAYMENT-REQUIRED` header. After a valid compatible payment, the payment SDK is expected to settle it and allow the request through with a settlement response header.
+An unpaid paid request should return `402` with a `PAYMENT-REQUIRED` header. This includes a plain `GET /mcp` endpoint probe, which allows OKX.AI's User-flow validator to verify that the endpoint is x402-gated. After a valid compatible payment, the payment SDK is expected to settle it and allow the request through with a settlement response header.
 
 ### Current free-tier behavior
 
