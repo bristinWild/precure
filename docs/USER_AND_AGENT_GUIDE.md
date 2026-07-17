@@ -114,7 +114,7 @@ workflow, request:
 GET https://precure-production.up.railway.app/repo/<repoId>/memory.zip
 ```
 
-This flagship export costs 5 USDT0. The ZIP contains Precure's generated
+This flagship export costs 4 USDT0. The ZIP contains Precure's generated
 memory JSON records, `metadata.json`, and an export manifest. It intentionally
 does not include the repository checkout, source files, `.git` history, or any
 server secrets.

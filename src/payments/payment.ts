@@ -13,7 +13,7 @@ const PRICES = {
   gapReport: '$0.25',
   architecture: '$0.05',
   activity: '$0.02',
-  memoryDownload: '$5.00',
+  memoryDownload: '$4.00',
   mcp: '$0.25',
   vibeMemory: '$0.05',
 } as const;

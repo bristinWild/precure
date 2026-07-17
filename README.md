@@ -131,7 +131,7 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | `GET /repo/:repoId/gap-report` | 0.25 USDT |
 | `GET /repo/:repoId/architecture` | 0.05 USDT |
 | `GET /repo/:repoId/activity` | 0.02 USDT |
-| `GET /repo/:repoId/memory.zip` | 5.00 USDT |
+| `GET /repo/:repoId/memory.zip` | 4.00 USDT |
 | `GET` or `POST /mcp` | 0.25 USDT |
 | `GET` or `POST /vibememory/mcp` | 0.05 USDT |
 
