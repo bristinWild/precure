@@ -105,8 +105,8 @@ export class RepoService {
       cloned = true;
     }
 
-    const indexed = await fs.pathExists(metadataPath);
-    if (!indexed) {
+    const alreadyIndexed = await fs.pathExists(metadataPath);
+    if (!alreadyIndexed) {
       await this.cliper.init({
         path: repoPath,
         register: false,
@@ -114,7 +114,7 @@ export class RepoService {
       });
     }
 
-    return { success: true, cloned, indexed, repoId };
+    return { success: true, cloned, indexed: true, alreadyIndexed, repoId };
   }
 
   async ask(repoId: string, question: string) {
