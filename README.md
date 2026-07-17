@@ -219,6 +219,11 @@ The current marketplace endpoint is served from Railway.
 5. Confirm that `POST https://precure-production.up.railway.app/mcp` returns `402` with `PAYMENT-REQUIRED` when no payment is supplied.
 6. Run a funded-wallet settlement test before relying on paid calls in production.
 
+Railway terminates TLS at its proxy. The application trusts exactly one proxy
+hop so x402 challenges advertise the public `https://` resource URL rather
+than Railway's internal `http://` connection. Keep this setting when changing
+the deployment topology.
+
 The volume is essential: repository clones and local JSON memories must survive restarts and deployments.
 
 ### Fly.io (alternate deployment)
@@ -248,6 +253,7 @@ Before listing or demonstrating Precure:
 - [ ] Confirm `OPENAI_API_KEY` and all x402 secrets are present.
 - [ ] Confirm `PRECURE_PAYMENT_MODE=x402` in production.
 - [ ] Send an unpaid `POST /mcp` and verify `402` plus `PAYMENT-REQUIRED`.
+- [ ] Decode the payment challenge and verify its resource URL starts with `https://`.
 - [ ] Complete one end-to-end paid call and retain the settlement evidence.
 - [ ] Initialize a small public repository and verify each MCP tool responds.
 - [ ] Monitor volume consumption; cloned repositories and their memories accumulate.
