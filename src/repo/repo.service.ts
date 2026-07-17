@@ -219,6 +219,50 @@ export class RepoService {
     return { repoId, question, audience, answer };
   }
 
+  async recall(repoId: string, query: string, maxResults = 5) {
+    if (!query?.trim()) {
+      throw new BadRequestException('Query is required');
+    }
+
+    const repoPath = await this.initializedRepositoryPath(repoId);
+    const retrieval = await this.cliper.searchStructured({
+      path: repoPath,
+      query,
+    });
+    const selected = [
+      ...retrieval.architecture,
+      ...retrieval.files,
+      ...retrieval.dependencies,
+      ...retrieval.packages,
+      ...retrieval.repository,
+      ...retrieval.commits,
+      ...retrieval.gaps,
+    ]
+      .filter(
+        (memory, index, all) =>
+          all.findIndex((candidate) => candidate.id === memory.id) === index,
+      )
+      .slice(0, maxResults)
+      .map((memory) => ({
+        memoryId: memory.id,
+        type: memory.type,
+        title: memory.title,
+        content: memory.content,
+        relationships: memory.relationships ?? [],
+        metadata: memory.metadata ?? {},
+      }));
+
+    return {
+      repoId,
+      query,
+      memories: selected,
+      summary:
+        selected.length
+          ? `Returned ${selected.length} grounded memory item${selected.length === 1 ? '' : 's'} for the coding agent.`
+          : 'No matching memory was found. Try a more specific task, component, file, or package name.',
+    };
+  }
+
   private enrichCrossFunctionalContext(
     retrieval: SearchResult,
     memories: MemoryObject[],

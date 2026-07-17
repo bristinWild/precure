@@ -12,15 +12,39 @@ type TransportMap = Record<string, StreamableHTTPServerTransport>;
 @Injectable()
 export class McpService {
   private readonly transports: TransportMap = {};
+  private readonly vibeMemoryTransports: TransportMap = {};
 
   constructor(private readonly repos: RepoService) {}
 
   async handle(request: Request, response: Response): Promise<void> {
+    return this.handleServer(
+      request,
+      response,
+      this.transports,
+      () => this.createServer(),
+    );
+  }
+
+  async handleVibeMemory(request: Request, response: Response): Promise<void> {
+    return this.handleServer(
+      request,
+      response,
+      this.vibeMemoryTransports,
+      () => this.createVibeMemoryServer(),
+    );
+  }
+
+  private async handleServer(
+    request: Request,
+    response: Response,
+    transports: TransportMap,
+    createServer: () => McpServer,
+  ): Promise<void> {
     const sessionId = request.header('mcp-session-id');
 
     try {
-      if (sessionId && this.transports[sessionId]) {
-        await this.transports[sessionId].handleRequest(
+      if (sessionId && transports[sessionId]) {
+        await transports[sessionId].handleRequest(
           request,
           response,
           request.body,
@@ -36,22 +60,25 @@ export class McpService {
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: randomUUID,
           onsessioninitialized: (id) => {
-            this.transports[id] = transport;
+            transports[id] = transport;
           },
         });
         transport.onclose = () => {
           const id = transport.sessionId;
-          if (id) delete this.transports[id];
+          if (id) delete transports[id];
         };
 
-        await this.createServer().connect(transport);
+        await createServer().connect(transport);
         await transport.handleRequest(request, response, request.body);
         return;
       }
 
       response.status(400).json({
         jsonrpc: '2.0',
-        error: { code: -32000, message: 'Invalid or missing MCP session ID.' },
+        error: {
+          code: -32000,
+          message: 'Invalid or missing MCP session ID.',
+        },
         id: null,
       });
     } catch (error) {
@@ -136,6 +163,27 @@ export class McpService {
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.activity(repo)),
+    );
+
+    return server;
+  }
+
+  private createVibeMemoryServer(): McpServer {
+    const server = new McpServer({ name: 'vibememory', version: '0.1.0' });
+
+    server.registerTool(
+      'recall',
+      {
+        description:
+          'Return compact, grounded persistent repository memories for a coding agent task without generating an LLM answer.',
+        inputSchema: {
+          repo: z.string(),
+          query: z.string().min(1),
+          max_results: z.number().int().min(1).max(8).optional(),
+        },
+      },
+      async ({ repo, query, max_results }) =>
+        this.result(() => this.repos.recall(repo, query, max_results ?? 5)),
     );
 
     return server;

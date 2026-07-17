@@ -14,6 +14,7 @@ const PRICES = {
   architecture: '$0.05',
   activity: '$0.02',
   mcp: '$0.25',
+  vibeMemory: '$0.05',
 } as const;
 
 type FreeTierEntry = { calls: number; resetAt: number };
@@ -107,6 +108,14 @@ export function configurePayments(express: Express): void {
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
+        'GET /vibememory/mcp': route(
+          PRICES.vibeMemory,
+          'Open or resume a VibeMemory MCP session',
+        ),
+        'POST /vibememory/mcp': route(
+          PRICES.vibeMemory,
+          'Recall persistent repository memory for a coding agent',
+        ),
       },
       resourceServer,
     ),

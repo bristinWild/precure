@@ -40,6 +40,7 @@ The OKX.AI listing exposes fixed-price API services. They can share the same MCP
 | Repository Risk Report | `gap_report` | Repository ID |
 | Architecture Mapper | `get_architecture` | Repository ID |
 | Repo Activity Timeline | `activity` | Repository ID |
+| VibeMemory Recall | `recall` | Repository ID and a coding-task query |
 
 `sync_repo` refreshes the checked-out remote branch and rebuilds persistent local memory. Merged pull requests are included through the updated branch history; open pull requests require a separate GitHub integration.
 
@@ -55,6 +56,16 @@ https://precure-production.up.railway.app/mcp
 
 The server supports the standard MCP initialization and session flow. The first JSON-RPC request must be an `initialize` request; later requests must send the `mcp-session-id` response header back to the service.
 
+### VibeMemory interface
+
+Use the lightweight persistent-memory endpoint for coding agents:
+
+```text
+https://precure-production.up.railway.app/vibememory/mcp
+```
+
+VibeMemory exposes `recall`. It returns compact, grounded memory snippets and memory IDs for a task without calling an LLM to generate an answer.
+
 ### Tools
 
 | Tool | Input | Result |
@@ -66,6 +77,7 @@ The server supports the standard MCP initialization and session flow. The first 
 | `gap_report` | `{ "repo": "<repoId>" }` | Gap memories, dependency memories, and activity memories |
 | `get_architecture` | `{ "repo": "<repoId>" }` | Architecture and repository memories |
 | `activity` | `{ "repo": "<repoId>" }` | Commit, release, and timeline memories, newest first when date metadata exists |
+| VibeMemory `recall` | `{ "repo": "<repoId>", "query": "...", "max_results": 5 }` | Grounded memory snippets, relationships, and memory IDs for a coding agent |
 
 The server returns tool results as JSON serialized in MCP text content. Tool failures are returned as MCP `isError: true` content.
 
@@ -111,6 +123,7 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | `GET /repo/:repoId/architecture` | 0.05 USDT |
 | `GET /repo/:repoId/activity` | 0.02 USDT |
 | `GET` or `POST /mcp` | 0.25 USDT |
+| `GET` or `POST /vibememory/mcp` | 0.05 USDT |
 
 Important: x402 middleware prices an HTTP route, not an individual JSON-RPC tool. Consequently, the marketplace uses a single **0.25 USDT** price for each MCP-backed listing. An MCP initialization request is also a `POST /mcp` request and is therefore challenged in x402 mode.
 
@@ -131,6 +144,8 @@ NestJS application
   ├── MCP controller (`/mcp`)
   │     └── MCP server: init_repo, sync_repo, ask, list_gaps, gap_report,
   │                      get_architecture, activity
+  ├── VibeMemory MCP controller (`/vibememory/mcp`)
+  │     └── MCP server: recall
   ├── Repository controller (`/repo/*`)
   ├── RepoService
   │     ├── simple-git shallow clone
