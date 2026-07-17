@@ -60,7 +60,7 @@ ${this.formatSection('Gaps', search.gaps)}
         {
           role: 'system',
           content: `
-You are Repo Oracle.
+You are Precure, a repository-memory assistant.
 
 You answer questions ONLY using the repository memories provided.
 
