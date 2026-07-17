@@ -295,6 +295,7 @@ At the time this README was updated, unit tests pass. The E2E suite requires Jes
 - **Public repositories only:** `init_repo` accepts only `https://github.com/<owner>/<repo>` URLs. Private repository access is not implemented.
 - **No clone resource limits yet:** cloning is shallow and uses `--filter=blob:none`, but the code currently has no explicit clone-size cap, concurrency limit, or timeout. Treat public ingestion as an abuse and cost-control surface.
 - **Branch synchronization:** `sync_repo` fetches the checked-out remote branch and rebuilds local memory. It does not currently ingest open pull requests as separate objects.
+- **Concurrent writers:** indexing and synchronization use a volume-backed per-repository lock. Calls for the same repository wait in sequence so they do not clone, reset, or rebuild memory at the same time.
 - **No per-tool MCP price today:** MCP is billed per `/mcp` HTTP request at 0.25 USDT; the lower per-route REST prices do not apply to MCP tool names.
 - **Single-process MCP sessions:** in-memory MCP session transports are held in the application process. Horizontal scaling requires shared session strategy or sticky routing.
 - **OpenAI data handling:** Q&A sends retrieved memory content and the caller’s question to OpenAI. Do not index repositories whose content should not be sent to that provider.

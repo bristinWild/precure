@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +19,9 @@ import { AiService } from '../ai/ai.service';
 
 const REPOSITORY_NOT_INITIALIZED =
   'Repository memory is not initialized; run cliper init first.';
+const LOCK_RETRY_MS = 250;
+const LOCK_WAIT_TIMEOUT_MS = 4 * 60 * 1000;
+const STALE_LOCK_MS = 20 * 60 * 1000;
 
 const SEVERITY_RANK: Record<string, number> = {
   high: 0,
@@ -133,67 +137,112 @@ export class RepoService {
       .replace(/\/$/, '')
       .toLowerCase();
     const repoId = createHash('sha256').update(normalizedUrl).digest('hex');
-    const repoPath = this.repositoryPath(repoId);
-    let cloned = false;
+    return this.withRepositoryLock(repoId, async () => {
+      const repoPath = this.repositoryPath(repoId);
+      let cloned = false;
 
-    if (!(await fs.pathExists(path.join(repoPath, '.git')))) {
-      await simpleGit().clone(normalizedUrl, repoPath, [
-        '--depth',
-        '1',
-        '--filter=blob:none',
-      ]);
-      cloned = true;
-    }
+      if (!(await fs.pathExists(path.join(repoPath, '.git')))) {
+        await simpleGit().clone(normalizedUrl, repoPath, [
+          '--depth',
+          '1',
+          '--filter=blob:none',
+        ]);
+        cloned = true;
+      }
 
-    const alreadyIndexed = await this.hasCompleteIndex(repoPath);
-    if (!alreadyIndexed) {
+      const alreadyIndexed = await this.hasCompleteIndex(repoPath);
+      if (!alreadyIndexed) {
+        this.ensureLocalMemoryProvider();
+        await this.cliper.init({
+          path: repoPath,
+          register: false,
+          providers: ['local-json'],
+        });
+      }
+
+      return { success: true, cloned, indexed: true, alreadyIndexed, repoId };
+    });
+  }
+
+  async sync(repoId: string) {
+    return this.withRepositoryLock(repoId, async () => {
+      const repoPath = await this.initializedRepositoryPath(repoId);
+      const git = simpleGit(repoPath);
+      const branchSummary = await git.branch();
+      const branch = branchSummary.current;
+      if (!branch) {
+        throw new BadRequestException(
+          'Repository has no checked-out branch to synchronize.',
+        );
+      }
+
+      const previousHead = (await git.revparse(['HEAD'])).trim();
+      await git.raw(['fetch', '--depth', '50', 'origin', branch]);
+      await git.raw(['reset', '--hard', `origin/${branch}`]);
+      const currentHead = (await git.revparse(['HEAD'])).trim();
+
       this.ensureLocalMemoryProvider();
       await this.cliper.init({
         path: repoPath,
         register: false,
         providers: ['local-json'],
       });
-    }
 
-    return { success: true, cloned, indexed: true, alreadyIndexed, repoId };
+      return {
+        success: true,
+        repoId,
+        branch,
+        updated: previousHead !== currentHead,
+        previousHead,
+        currentHead,
+        indexed: true,
+        summary:
+          previousHead === currentHead
+            ? 'Repository was already up to date; its persistent memory was refreshed.'
+            : 'Repository was updated from its remote branch and its persistent memory was refreshed.',
+      };
+    });
   }
 
-  async sync(repoId: string) {
-    const repoPath = await this.initializedRepositoryPath(repoId);
-    const git = simpleGit(repoPath);
-    const branchSummary = await git.branch();
-    const branch = branchSummary.current;
-    if (!branch) {
-      throw new BadRequestException(
-        'Repository has no checked-out branch to synchronize.',
-      );
+  private async withRepositoryLock<T>(
+    repoId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const repoPath = this.repositoryPath(repoId);
+    const lockPath = path.join(
+      path.dirname(repoPath),
+      `.${repoId}.precure.lock`,
+    );
+    const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+
+    await fs.ensureDir(path.dirname(lockPath));
+    while (true) {
+      try {
+        await fs.writeFile(lockPath, `${Date.now()}`, { flag: 'wx' });
+        break;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code !== 'EEXIST') throw error;
+
+        const stat = await fs.stat(lockPath).catch(() => undefined);
+        if (stat && Date.now() - stat.mtimeMs > STALE_LOCK_MS) {
+          await fs.remove(lockPath);
+          continue;
+        }
+        if (Date.now() >= deadline) {
+          throw new ConflictException(
+            'A repository update is already in progress. Please retry shortly.',
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS));
+      }
     }
 
-    const previousHead = (await git.revparse(['HEAD'])).trim();
-    await git.raw(['fetch', '--depth', '50', 'origin', branch]);
-    await git.raw(['reset', '--hard', `origin/${branch}`]);
-    const currentHead = (await git.revparse(['HEAD'])).trim();
-
-    this.ensureLocalMemoryProvider();
-    await this.cliper.init({
-      path: repoPath,
-      register: false,
-      providers: ['local-json'],
-    });
-
-    return {
-      success: true,
-      repoId,
-      branch,
-      updated: previousHead !== currentHead,
-      previousHead,
-      currentHead,
-      indexed: true,
-      summary:
-        previousHead === currentHead
-          ? 'Repository was already up to date; its persistent memory was refreshed.'
-          : 'Repository was updated from its remote branch and its persistent memory was refreshed.',
-    };
+    try {
+      return await operation();
+    } finally {
+      await fs.remove(lockPath);
+    }
   }
 
   async ask(repoId: string, question: string, audience?: string) {
