@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 import simpleGit from 'simple-git';
 import { Cliper } from 'cliper-memory';
+import type { SearchResult } from 'cliper-memory';
 import {
   loadConfig,
   saveConfig,
@@ -167,9 +168,52 @@ export class RepoService {
       path: repoPath,
       query: question,
     });
-    const answer = await this.aiService.answer(question, retrieval, audience);
+    const answer = await this.aiService.answer(
+      question,
+      this.enrichCrossFunctionalContext(retrieval, await this.memories(repoId)),
+      audience,
+    );
 
     return { repoId, question, audience, answer };
+  }
+
+  private enrichCrossFunctionalContext(
+    retrieval: SearchResult,
+    memories: MemoryObject[],
+  ): SearchResult {
+    const merge = (existing: MemoryObject[], additions: MemoryObject[]) =>
+      [...existing, ...additions].filter(
+        (memory, index, all) =>
+          all.findIndex((candidate) => candidate.id === memory.id) === index,
+      );
+    const contextualFiles = memories.filter(
+      (memory) =>
+        memory.type === 'file' &&
+        /(^|\/)(readme|about|overview)|package\.json|docs\//i.test(
+          `${memory.id} ${memory.title}`,
+        ),
+    );
+
+    return {
+      ...retrieval,
+      repository: merge(
+        retrieval.repository,
+        memories.filter((memory) => memory.type === 'repository'),
+      ).slice(0, 4),
+      architecture: merge(
+        retrieval.architecture,
+        memories.filter((memory) => memory.type === 'architecture'),
+      ).slice(0, 12),
+      files: merge(retrieval.files, contextualFiles).slice(0, 12),
+      dependencies: merge(
+        retrieval.dependencies,
+        memories.filter((memory) => memory.type === 'dependency'),
+      ).slice(0, 12),
+      packages: merge(
+        retrieval.packages,
+        memories.filter((memory) => memory.type === 'package'),
+      ).slice(0, 12),
+    };
   }
 
   async listGaps(repoId: string) {
