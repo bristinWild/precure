@@ -28,6 +28,13 @@ type RepositoryMetadata = {
   projectName: string;
 };
 
+type RepositoryStatistics = {
+  language?: string;
+  fileCount?: number;
+  externalPackageCount?: number;
+  modules?: string[];
+};
+
 @Injectable()
 export class RepoService {
   constructor(private readonly aiService: AiService) {}
@@ -174,15 +181,22 @@ export class RepoService {
           (SEVERITY_RANK[right.metadata?.severity] ?? 3),
       );
 
-    return { repoId, gaps };
+    return {
+      repoId,
+      managerSummary: this.gapSummary(gaps),
+      gaps,
+    };
   }
 
   async getArchitecture(repoId: string) {
     const memories = await this.memories(repoId);
+    const architecture = memories.filter((memory) => memory.type === 'architecture');
+    const repository = memories.filter((memory) => memory.type === 'repository');
     return {
       repoId,
-      architecture: memories.filter((memory) => memory.type === 'architecture'),
-      repository: memories.filter((memory) => memory.type === 'repository'),
+      managerSummary: this.architectureSummary(architecture, repository),
+      architecture,
+      repository,
     };
   }
 
@@ -193,7 +207,11 @@ export class RepoService {
       )
       .sort((left, right) => this.compareActivity(left, right));
 
-    return { repoId, activity };
+    return {
+      repoId,
+      managerSummary: this.activitySummary(activity),
+      activity,
+    };
   }
 
   async gapReport(repoId: string) {
@@ -214,7 +232,71 @@ export class RepoService {
       )
       .sort((left, right) => this.compareActivity(left, right));
 
-    return { repoId, gaps, dependencies, activity };
+    return {
+      repoId,
+      executiveSummary: {
+        overview: this.reportOverview(gaps, dependencies, activity),
+        keyFindings: this.gapSummary(gaps).keyFindings,
+        recommendedActions: this.gapSummary(gaps).recommendedActions,
+      },
+      gaps,
+      dependencies,
+      activity,
+    };
+  }
+
+  private gapSummary(gaps: MemoryObject[]) {
+    const high = gaps.filter((gap) => gap.metadata?.severity === 'high');
+    const medium = gaps.filter((gap) => gap.metadata?.severity === 'medium');
+    const low = gaps.filter((gap) => gap.metadata?.severity === 'low');
+    const keyFindings = high.slice(0, 3).map((gap) => gap.metadata?.description ?? gap.title);
+
+    return {
+      overview:
+        high.length > 0
+          ? `This repository has ${high.length} high-priority issue${high.length === 1 ? '' : 's'} that should be addressed before a production integration, plus ${medium.length} medium- and ${low.length} low-priority documentation or maintenance gap${low.length === 1 ? '' : 's'}.`
+          : `No high-priority issues were found in the indexed memory. The repository has ${medium.length} medium- and ${low.length} low-priority documentation or maintenance gap${low.length === 1 ? '' : 's'}.`,
+      keyFindings,
+      recommendedActions: high.length
+        ? ['Address the high-priority items before production integration.', 'Assign owners and target dates for the remaining documentation gaps.']
+        : ['Review the listed documentation gaps during normal maintenance.'],
+    };
+  }
+
+  private architectureSummary(
+    architecture: MemoryObject[],
+    repository: MemoryObject[],
+  ) {
+    const details = repository.find((memory) => memory.metadata?.language) as
+      | (MemoryObject & { metadata?: RepositoryStatistics })
+      | undefined;
+    const modules = details?.metadata?.modules?.slice(0, 8) ?? [];
+    const language = details?.metadata?.language ?? 'an unspecified technology stack';
+    const fileCount = details?.metadata?.fileCount;
+
+    return {
+      overview: `This is a ${language} codebase${fileCount ? ` with ${fileCount} indexed files` : ''}. Its structure is represented by ${architecture.length} component relationship${architecture.length === 1 ? '' : 's'}, so managers can see how the main parts fit together without reading each file.`,
+      mainAreas: modules,
+      plainEnglish: 'The architecture records show which parts of the application are responsible for data, payments, AI, and the MCP interface, and how those parts depend on one another.',
+    };
+  }
+
+  private activitySummary(activity: MemoryObject[]) {
+    const commits = activity.filter((item) => item.type === 'commit').length;
+    const releases = activity.filter((item) => item.type === 'release').length;
+    return {
+      overview: `The indexed history contains ${commits} recent commit${commits === 1 ? '' : 's'} and ${releases} release${releases === 1 ? '' : 's'}. This helps a manager judge whether the project is actively changing before depending on it.`,
+      plainEnglish: 'Commits are recorded changes to the code. Releases are versioned milestones intended for users or deployment.',
+    };
+  }
+
+  private reportOverview(
+    gaps: MemoryObject[],
+    dependencies: MemoryObject[],
+    activity: MemoryObject[],
+  ): string {
+    const high = gaps.filter((gap) => gap.metadata?.severity === 'high').length;
+    return `This due-diligence summary combines ${gaps.length} known gap${gaps.length === 1 ? '' : 's'}, ${dependencies.length} recorded dependency relationship${dependencies.length === 1 ? '' : 's'}, and ${activity.length} recent activity item${activity.length === 1 ? '' : 's'}. ${high > 0 ? `${high} high-priority issue${high === 1 ? ' needs' : 's need'} management attention before production integration.` : 'No high-priority issues were found in the indexed memory.'}`;
   }
 
   private compareActivity(left: MemoryObject, right: MemoryObject): number {

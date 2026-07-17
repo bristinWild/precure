@@ -75,6 +75,8 @@ Rules:
 - Cite the supporting memory IDs in square brackets, for example [architecture:src/sdk/init.ts].
 - Ignore unrelated sections.
 - Summarize instead of copying large chunks.
+- Start with a plain-English answer suitable for a non-technical manager. Explain
+  technical terms briefly when they are necessary, then provide technical detail.
 `,
         },
         {

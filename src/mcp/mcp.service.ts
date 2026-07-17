@@ -92,7 +92,7 @@ export class McpService {
       'list_gaps',
       {
         description:
-          'Return known repository gaps in high, medium, then low severity order.',
+          'Return a manager-friendly summary plus known repository gaps in high, medium, then low severity order.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.listGaps(repo)),
@@ -101,7 +101,7 @@ export class McpService {
       'gap_report',
       {
         description:
-          'Return gaps, dependency risk, and activity as a structured report.',
+          'Return a manager-friendly due-diligence summary plus gaps, dependency information, and activity.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.gapReport(repo)),
@@ -110,7 +110,7 @@ export class McpService {
       'get_architecture',
       {
         description:
-          'Return the repository architecture and repository memories.',
+          'Return a plain-English architecture overview plus repository memories.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.getArchitecture(repo)),
@@ -119,7 +119,7 @@ export class McpService {
       'activity',
       {
         description:
-          'Return commits, releases, and timeline memories with dated items first.',
+          'Return a plain-English activity overview plus commits, releases, and timeline memories.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.activity(repo)),
