@@ -82,17 +82,21 @@ export class McpService {
       'ask',
       {
         description:
-          'Answer a repository question only from retrieved repository memories.',
-        inputSchema: { repo: z.string(), question: z.string().min(1) },
+          'Answer a repository question from retrieved memories, tailored for a technical or cross-functional audience.',
+        inputSchema: {
+          repo: z.string(),
+          question: z.string().min(1),
+          audience: z.string().max(100).optional(),
+        },
       },
-      async ({ repo, question }) =>
-        this.result(() => this.repos.ask(repo, question)),
+      async ({ repo, question, audience }) =>
+        this.result(() => this.repos.ask(repo, question, audience)),
     );
     server.registerTool(
       'list_gaps',
       {
         description:
-          'Return a manager-friendly summary plus known repository gaps in high, medium, then low severity order.',
+          'Return a cross-functional summary plus known repository gaps in high, medium, then low severity order.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.listGaps(repo)),
@@ -101,7 +105,7 @@ export class McpService {
       'gap_report',
       {
         description:
-          'Return a manager-friendly due-diligence summary plus gaps, dependency information, and activity.',
+          'Return a cross-functional due-diligence summary plus gaps, dependency information, and activity.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.gapReport(repo)),
@@ -110,7 +114,7 @@ export class McpService {
       'get_architecture',
       {
         description:
-          'Return a plain-English architecture overview plus repository memories.',
+          'Return a cross-functional plain-English architecture overview plus repository memories.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.getArchitecture(repo)),
@@ -119,7 +123,7 @@ export class McpService {
       'activity',
       {
         description:
-          'Return a plain-English activity overview plus commits, releases, and timeline memories.',
+          'Return a cross-functional plain-English activity overview plus commits, releases, and timeline memories.',
         inputSchema: { repo: z.string() },
       },
       async ({ repo }) => this.result(() => this.repos.activity(repo)),

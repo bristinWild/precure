@@ -33,7 +33,11 @@ ${m.content}`,
 `;
   }
 
-  async answer(question: string, search: SearchResult): Promise<string> {
+  async answer(
+    question: string,
+    search: SearchResult,
+    audience?: string,
+  ): Promise<string> {
     const context = `
 ${this.formatSection('Architecture', search.architecture)}
 
@@ -75,8 +79,10 @@ Rules:
 - Cite the supporting memory IDs in square brackets, for example [architecture:src/sdk/init.ts].
 - Ignore unrelated sections.
 - Summarize instead of copying large chunks.
-- Start with a plain-English answer suitable for a non-technical manager. Explain
-  technical terms briefly when they are necessary, then provide technical detail.
+- Start with a plain-English answer suitable for the stated audience. The audience
+  may be marketing, design, DevOps, HR, product, leadership, engineering, or a
+  mixed team. Explain technical terms briefly when they are necessary, then provide
+  technical detail and supporting references.
 `,
         },
         {
@@ -85,6 +91,10 @@ Rules:
 Question:
 
 ${question}
+
+Audience:
+
+${audience?.trim() || 'a mixed cross-functional team'}
 
 Repository Memory:
 

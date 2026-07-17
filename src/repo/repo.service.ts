@@ -157,7 +157,7 @@ export class RepoService {
     return { success: true, cloned, indexed: true, alreadyIndexed, repoId };
   }
 
-  async ask(repoId: string, question: string) {
+  async ask(repoId: string, question: string, audience?: string) {
     if (!question?.trim()) {
       throw new BadRequestException('Question is required');
     }
@@ -167,9 +167,9 @@ export class RepoService {
       path: repoPath,
       query: question,
     });
-    const answer = await this.aiService.answer(question, retrieval);
+    const answer = await this.aiService.answer(question, retrieval, audience);
 
-    return { repoId, question, answer };
+    return { repoId, question, audience, answer };
   }
 
   async listGaps(repoId: string) {
@@ -183,7 +183,7 @@ export class RepoService {
 
     return {
       repoId,
-      managerSummary: this.gapSummary(gaps),
+      stakeholderSummary: this.gapSummary(gaps),
       gaps,
     };
   }
@@ -194,7 +194,7 @@ export class RepoService {
     const repository = memories.filter((memory) => memory.type === 'repository');
     return {
       repoId,
-      managerSummary: this.architectureSummary(architecture, repository),
+      stakeholderSummary: this.architectureSummary(architecture, repository),
       architecture,
       repository,
     };
@@ -209,7 +209,7 @@ export class RepoService {
 
     return {
       repoId,
-      managerSummary: this.activitySummary(activity),
+      stakeholderSummary: this.activitySummary(activity),
       activity,
     };
   }
@@ -234,7 +234,7 @@ export class RepoService {
 
     return {
       repoId,
-      executiveSummary: {
+      stakeholderSummary: {
         overview: this.reportOverview(gaps, dependencies, activity),
         keyFindings: this.gapSummary(gaps).keyFindings,
         recommendedActions: this.gapSummary(gaps).recommendedActions,
@@ -258,8 +258,13 @@ export class RepoService {
           : `No high-priority issues were found in the indexed memory. The repository has ${medium.length} medium- and ${low.length} low-priority documentation or maintenance gap${low.length === 1 ? '' : 's'}.`,
       keyFindings,
       recommendedActions: high.length
-        ? ['Address the high-priority items before production integration.', 'Assign owners and target dates for the remaining documentation gaps.']
-        : ['Review the listed documentation gaps during normal maintenance.'],
+        ? [
+            'Engineering and DevOps should address high-priority items before production integration.',
+            'Product, design, marketing, and HR can use the documentation gaps to identify onboarding and launch-readiness work.',
+          ]
+        : [
+            'Review the listed documentation gaps during normal maintenance and onboarding planning.',
+          ],
     };
   }
 
@@ -275,9 +280,9 @@ export class RepoService {
     const fileCount = details?.metadata?.fileCount;
 
     return {
-      overview: `This is a ${language} codebase${fileCount ? ` with ${fileCount} indexed files` : ''}. Its structure is represented by ${architecture.length} component relationship${architecture.length === 1 ? '' : 's'}, so managers can see how the main parts fit together without reading each file.`,
+      overview: `This is a ${language} codebase${fileCount ? ` with ${fileCount} indexed files` : ''}. Its structure is represented by ${architecture.length} component relationship${architecture.length === 1 ? '' : 's'}, so a cross-functional team can understand how the main parts fit together without reading each file.`,
       mainAreas: modules,
-      plainEnglish: 'The architecture records show which parts of the application are responsible for data, payments, AI, and the MCP interface, and how those parts depend on one another.',
+      plainEnglish: 'The architecture records show which parts are responsible for data, payments, AI, and the MCP interface, and how those parts depend on one another. This helps product and design understand feature boundaries, DevOps identify operational components, and marketing or HR prepare accurate launch and onboarding material.',
     };
   }
 
@@ -285,7 +290,7 @@ export class RepoService {
     const commits = activity.filter((item) => item.type === 'commit').length;
     const releases = activity.filter((item) => item.type === 'release').length;
     return {
-      overview: `The indexed history contains ${commits} recent commit${commits === 1 ? '' : 's'} and ${releases} release${releases === 1 ? '' : 's'}. This helps a manager judge whether the project is actively changing before depending on it.`,
+      overview: `The indexed history contains ${commits} recent commit${commits === 1 ? '' : 's'} and ${releases} release${releases === 1 ? '' : 's'}. This helps every stakeholder understand whether the product is actively changing before planning launches, design work, operations, or onboarding.`,
       plainEnglish: 'Commits are recorded changes to the code. Releases are versioned milestones intended for users or deployment.',
     };
   }
@@ -296,7 +301,7 @@ export class RepoService {
     activity: MemoryObject[],
   ): string {
     const high = gaps.filter((gap) => gap.metadata?.severity === 'high').length;
-    return `This due-diligence summary combines ${gaps.length} known gap${gaps.length === 1 ? '' : 's'}, ${dependencies.length} recorded dependency relationship${dependencies.length === 1 ? '' : 's'}, and ${activity.length} recent activity item${activity.length === 1 ? '' : 's'}. ${high > 0 ? `${high} high-priority issue${high === 1 ? ' needs' : 's need'} management attention before production integration.` : 'No high-priority issues were found in the indexed memory.'}`;
+    return `This cross-functional due-diligence summary combines ${gaps.length} known gap${gaps.length === 1 ? '' : 's'}, ${dependencies.length} recorded dependency relationship${dependencies.length === 1 ? '' : 's'}, and ${activity.length} recent activity item${activity.length === 1 ? '' : 's'}. ${high > 0 ? `${high} high-priority issue${high === 1 ? ' needs' : 's need'} engineering and DevOps attention before production integration.` : 'No high-priority issues were found in the indexed memory.'} Product, design, marketing, and HR can use the same evidence to plan scope, messaging, customer expectations, and onboarding.`;
   }
 
   private compareActivity(left: MemoryObject, right: MemoryObject): number {
