@@ -81,6 +81,25 @@ export class RepoService {
     return memory.filter((item): item is MemoryObject => Boolean(item));
   }
 
+  private async hasCompleteIndex(repoPath: string): Promise<boolean> {
+    const metadataPath = path.join(repoPath, '.cliper', 'metadata.json');
+    if (!(await fs.pathExists(metadataPath))) return false;
+
+    try {
+      const metadata = (await fs.readJson(metadataPath)) as RepositoryMetadata;
+      const memoryPath = path.join(
+        repoPath,
+        '.cliper',
+        'memory',
+        `cliper-${metadata.projectName}`,
+      );
+      const entries = await fs.readdir(memoryPath);
+      return entries.some((entry) => entry.endsWith('.json'));
+    } catch {
+      return false;
+    }
+  }
+
   async init(githubUrl: string) {
     const githubRegex = /^https:\/\/github\.com\/[^/]+\/[^/]+(?:\.git)?\/?$/;
     if (!githubRegex.test(githubUrl)) {
@@ -93,7 +112,6 @@ export class RepoService {
       .toLowerCase();
     const repoId = createHash('sha256').update(normalizedUrl).digest('hex');
     const repoPath = this.repositoryPath(repoId);
-    const metadataPath = path.join(repoPath, '.cliper', 'metadata.json');
     let cloned = false;
 
     if (!(await fs.pathExists(path.join(repoPath, '.git')))) {
@@ -105,7 +123,7 @@ export class RepoService {
       cloned = true;
     }
 
-    const alreadyIndexed = await fs.pathExists(metadataPath);
+    const alreadyIndexed = await this.hasCompleteIndex(repoPath);
     if (!alreadyIndexed) {
       await this.cliper.init({
         path: repoPath,
