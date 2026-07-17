@@ -59,7 +59,7 @@ repository so updates do not race.
 | See how code is organized | Architecture Mapper (`get_architecture`) | Module relationships and architecture memories |
 | Understand what is changing | Repo Activity Timeline (`activity`) | Recent commits, releases, and change context |
 | Give a coding agent durable context | VibeMemory (`recall`) | Compact grounded snippets and relationships |
-| Keep or move a complete memory snapshot | Download Memory (`GET /repo/:repoId/memory.zip`) | A ZIP of generated memory JSON and metadata, without source code |
+| Keep or move a complete memory snapshot | Download Memory (`GET /repo/memory/download?repoId=<repoId>`) | A ZIP of generated memory JSON and metadata, without source code |
 
 ## Quick start for people
 
@@ -111,7 +111,7 @@ For a durable offline record, backup, or import into a compatible internal
 workflow, request:
 
 ```text
-GET https://precure-production.up.railway.app/repo/<repoId>/memory.zip
+GET https://precure-production.up.railway.app/repo/memory/download?repoId=<repoId>
 ```
 
 This flagship export costs 4 USDT0. The ZIP contains Precure's generated

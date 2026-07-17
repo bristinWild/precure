@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { RepoService } from './repo.service';
 
@@ -56,5 +56,13 @@ export class RepoController {
     archive.on('error', (error) => response.destroy(error));
     archive.pipe(response);
     await archive.finalize();
+  }
+
+  @Get('memory/download')
+  async downloadMemoryFromQuery(
+    @Query('repoId') repoId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.downloadMemory(repoId, response);
   }
 }
