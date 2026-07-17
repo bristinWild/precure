@@ -111,61 +111,71 @@ export class McpService {
         description:
           'Answer a repository question from retrieved memories, tailored for a technical or cross-functional audience.',
         inputSchema: {
-          repo: z.string(),
+          repoId: z.string().optional(),
+          // Kept temporarily for clients that adopted the original MCP schema.
+          repo: z.string().optional(),
           question: z.string().min(1),
           audience: z.string().max(100).optional(),
         },
       },
-      async ({ repo, question, audience }) =>
-        this.result(() => this.repos.ask(repo, question, audience)),
+      async ({ repoId, repo, question, audience }) =>
+        this.result(() => this.repos.ask(this.requireRepoId(repoId, repo), question, audience)),
     );
     server.registerTool(
       'sync_repo',
       {
         description:
           'Update an initialized public repository from its remote branch and refresh its persistent memory.',
-        inputSchema: { repo: z.string() },
+        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
       },
-      async ({ repo }) => this.result(() => this.repos.sync(repo)),
+      async ({ repoId, repo }) => this.result(() => this.repos.sync(this.requireRepoId(repoId, repo))),
     );
     server.registerTool(
       'list_gaps',
       {
         description:
           'Return a cross-functional summary plus known repository gaps in high, medium, then low severity order.',
-        inputSchema: { repo: z.string() },
+        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
       },
-      async ({ repo }) => this.result(() => this.repos.listGaps(repo)),
+      async ({ repoId, repo }) => this.result(() => this.repos.listGaps(this.requireRepoId(repoId, repo))),
     );
     server.registerTool(
       'gap_report',
       {
         description:
           'Return a cross-functional due-diligence summary plus gaps, dependency information, and activity.',
-        inputSchema: { repo: z.string() },
+        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
       },
-      async ({ repo }) => this.result(() => this.repos.gapReport(repo)),
+      async ({ repoId, repo }) => this.result(() => this.repos.gapReport(this.requireRepoId(repoId, repo))),
     );
     server.registerTool(
       'get_architecture',
       {
         description:
           'Return a cross-functional plain-English architecture overview plus repository memories.',
-        inputSchema: { repo: z.string() },
+        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
       },
-      async ({ repo }) => this.result(() => this.repos.getArchitecture(repo)),
+      async ({ repoId, repo }) => this.result(() => this.repos.getArchitecture(this.requireRepoId(repoId, repo))),
     );
     server.registerTool(
       'activity',
       {
         description:
           'Return a cross-functional plain-English activity overview plus commits, releases, and timeline memories.',
-        inputSchema: { repo: z.string() },
+        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
       },
-      async ({ repo }) => this.result(() => this.repos.activity(repo)),
+      async ({ repoId, repo }) => this.result(() => this.repos.activity(this.requireRepoId(repoId, repo))),
     );
 
     return server;
+  }
+
+  private requireRepoId(repoId?: string, legacyRepo?: string): string {
+    const value = repoId ?? legacyRepo;
+    if (!value) {
+      throw new Error('repoId is required');
+    }
+    return value;
   }
 
   private createVibeMemoryServer(): McpServer {
@@ -177,13 +187,17 @@ export class McpService {
         description:
           'Return compact, grounded persistent repository memories for a coding agent task without generating an LLM answer.',
         inputSchema: {
-          repo: z.string(),
+          repoId: z.string().optional(),
+          // Kept temporarily for clients that adopted the original MCP schema.
+          repo: z.string().optional(),
           query: z.string().min(1),
           max_results: z.number().int().min(1).max(8).optional(),
         },
       },
-      async ({ repo, query, max_results }) =>
-        this.result(() => this.repos.recall(repo, query, max_results ?? 5)),
+      async ({ repoId, repo, query, max_results }) =>
+        this.result(() =>
+          this.repos.recall(this.requireRepoId(repoId, repo), query, max_results ?? 5),
+        ),
     );
 
     return server;
