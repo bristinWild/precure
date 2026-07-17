@@ -45,6 +45,7 @@ The OKX.AI listing exposes fixed-price API services. They can share the same MCP
 | Architecture Mapper | `get_architecture` | Repository ID |
 | Repo Activity Timeline | `activity` | Repository ID |
 | VibeMemory Recall | `recall` | Repository ID and a coding-task query |
+| Download Memory | `GET /repo/:repoId/memory.zip` | Repository ID |
 
 `sync_repo` refreshes the checked-out remote branch and rebuilds persistent local memory. Merged pull requests are included through the updated branch history; open pull requests require a separate GitHub integration.
 
@@ -113,6 +114,7 @@ The same service also offers direct REST routes. These are useful for debugging 
 | `GET` | `/repo/:repoId/gap-report` | Return gaps, dependencies, and activity |
 | `GET` | `/repo/:repoId/architecture` | Return architecture and repository memories |
 | `GET` | `/repo/:repoId/activity` | Return commit, release, and timeline memories |
+| `GET` | `/repo/:repoId/memory.zip` | Download a ZIP containing generated memory JSON and metadata only; it never includes cloned source code or `.git` history |
 
 `repoId` must be a 64-character lowercase SHA-256 hexadecimal string. Unknown or uninitialized IDs return the guidance: `Repository memory is not initialized; run cliper init first.`
 
@@ -129,6 +131,7 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | `GET /repo/:repoId/gap-report` | 0.25 USDT |
 | `GET /repo/:repoId/architecture` | 0.05 USDT |
 | `GET /repo/:repoId/activity` | 0.02 USDT |
+| `GET /repo/:repoId/memory.zip` | 5.00 USDT |
 | `GET` or `POST /mcp` | 0.25 USDT |
 | `GET` or `POST /vibememory/mcp` | 0.05 USDT |
 

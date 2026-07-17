@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { RepoService } from './repo.service';
 
 @Controller('repo')
@@ -38,5 +39,22 @@ export class RepoController {
   @Get(':repoId/activity')
   activity(@Param('repoId') repoId: string) {
     return this.repoService.activity(repoId);
+  }
+
+  @Get(':repoId/memory.zip')
+  async downloadMemory(
+    @Param('repoId') repoId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    const archive = await this.repoService.createMemoryArchive(repoId);
+    response.status(200);
+    response.setHeader('content-type', 'application/zip');
+    response.setHeader(
+      'content-disposition',
+      `attachment; filename="precure-memory-${repoId}.zip"`,
+    );
+    archive.on('error', (error) => response.destroy(error));
+    archive.pipe(response);
+    await archive.finalize();
   }
 }

@@ -13,6 +13,7 @@ const PRICES = {
   gapReport: '$0.25',
   architecture: '$0.05',
   activity: '$0.02',
+  memoryDownload: '$5.00',
   mcp: '$0.25',
   vibeMemory: '$0.05',
 } as const;
@@ -105,6 +106,10 @@ export function configurePayments(express: Express): void {
         'GET /repo/:repoId/activity': route(
           PRICES.activity,
           'Retrieve repository activity and releases',
+        ),
+        'GET /repo/:repoId/memory.zip': route(
+          PRICES.memoryDownload,
+          'Download a complete Precure repository memory export',
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),

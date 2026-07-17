@@ -7,6 +7,7 @@ import {
 import { createHash } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import type { Archiver } from 'archiver';
 import simpleGit from 'simple-git';
 import { Cliper } from 'cliper-memory';
 import type { SearchResult } from 'cliper-memory';
@@ -22,6 +23,11 @@ const REPOSITORY_NOT_INITIALIZED =
 const LOCK_RETRY_MS = 250;
 const LOCK_WAIT_TIMEOUT_MS = 4 * 60 * 1000;
 const STALE_LOCK_MS = 20 * 60 * 1000;
+
+const createArchive = require('archiver') as (
+  format: 'zip',
+  options: { zlib: { level: number } },
+) => Archiver;
 
 const SEVERITY_RANK: Record<string, number> = {
   high: 0,
@@ -310,6 +316,45 @@ export class RepoService {
           ? `Returned ${selected.length} grounded memory item${selected.length === 1 ? '' : 's'} for the coding agent.`
           : 'No matching memory was found. Try a more specific task, component, file, or package name.',
     };
+  }
+
+  /**
+   * Creates an export of Precure's generated memory only. The cloned source
+   * repository and its .git history are deliberately excluded.
+   */
+  async createMemoryArchive(repoId: string): Promise<Archiver> {
+    const repoPath = await this.initializedRepositoryPath(repoId);
+    const metadataPath = path.join(repoPath, '.cliper', 'metadata.json');
+    const metadata = (await fs.readJson(metadataPath)) as RepositoryMetadata;
+    const memoryPath = path.join(
+      repoPath,
+      '.cliper',
+      'memory',
+      `cliper-${metadata.projectName}`,
+    );
+
+    if (!(await fs.pathExists(memoryPath))) {
+      throw new NotFoundException(REPOSITORY_NOT_INITIALIZED);
+    }
+
+    const archive = createArchive('zip', { zlib: { level: 9 } });
+    archive.file(metadataPath, { name: 'metadata.json' });
+    archive.append(
+      JSON.stringify(
+        {
+          format: 'precure-memory-export',
+          version: 1,
+          repoId,
+          description:
+            'Generated Precure memory export. It contains indexed memory records and metadata, not repository source code.',
+        },
+        null,
+        2,
+      ),
+      { name: 'manifest.json' },
+    );
+    archive.directory(memoryPath, 'memory');
+    return archive;
   }
 
   private enrichCrossFunctionalContext(

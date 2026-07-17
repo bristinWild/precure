@@ -16,6 +16,7 @@ describe('RepoController', () => {
     gapReport: jest.fn(),
     getArchitecture: jest.fn(),
     activity: jest.fn(),
+    createMemoryArchive: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -27,7 +28,7 @@ describe('RepoController', () => {
     controller = module.get<RepoController>(RepoController);
   });
 
-  it('exposes the seven repository operations', () => {
+  it('exposes the eight repository operations', () => {
     expect(controller).toBeDefined();
     expect(typeof controller.init).toBe('function');
     expect(typeof controller.sync).toBe('function');
@@ -36,5 +37,6 @@ describe('RepoController', () => {
     expect(typeof controller.gapReport).toBe('function');
     expect(typeof controller.getArchitecture).toBe('function');
     expect(typeof controller.activity).toBe('function');
+    expect(typeof controller.downloadMemory).toBe('function');
   });
 });
