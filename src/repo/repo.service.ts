@@ -170,7 +170,11 @@ export class RepoService {
     });
     const answer = await this.aiService.answer(
       question,
-      this.enrichCrossFunctionalContext(retrieval, await this.memories(repoId)),
+      this.enrichCrossFunctionalContext(
+        retrieval,
+        await this.memories(repoId),
+        audience,
+      ),
       audience,
     );
 
@@ -180,18 +184,30 @@ export class RepoService {
   private enrichCrossFunctionalContext(
     retrieval: SearchResult,
     memories: MemoryObject[],
+    audience?: string,
   ): SearchResult {
     const merge = (existing: MemoryObject[], additions: MemoryObject[]) =>
       [...existing, ...additions].filter(
         (memory, index, all) =>
           all.findIndex((candidate) => candidate.id === memory.id) === index,
       );
+    const audiencePatterns = this.audiencePatterns(audience);
     const contextualFiles = memories.filter(
       (memory) =>
         memory.type === 'file' &&
-        /(^|\/)(readme|about|overview)|package\.json|docs\//i.test(
+        audiencePatterns.test(
           `${memory.id} ${memory.title}`,
         ),
+    );
+    const contextualArchitecture = memories.filter(
+      (memory) =>
+        memory.type === 'architecture' &&
+        audiencePatterns.test(`${memory.id} ${memory.title}`),
+    );
+    const contextualDependencies = memories.filter(
+      (memory) =>
+        memory.type === 'dependency' &&
+        audiencePatterns.test(`${memory.id} ${memory.title}`),
     );
 
     return {
@@ -202,18 +218,37 @@ export class RepoService {
       ).slice(0, 4),
       architecture: merge(
         retrieval.architecture,
-        memories.filter((memory) => memory.type === 'architecture'),
-      ).slice(0, 12),
-      files: merge(retrieval.files, contextualFiles).slice(0, 12),
+        contextualArchitecture,
+      ).slice(0, 8),
+      files: merge(retrieval.files, contextualFiles).slice(0, 8),
       dependencies: merge(
         retrieval.dependencies,
-        memories.filter((memory) => memory.type === 'dependency'),
-      ).slice(0, 12),
+        contextualDependencies,
+      ).slice(0, 8),
       packages: merge(
         retrieval.packages,
         memories.filter((memory) => memory.type === 'package'),
-      ).slice(0, 12),
+      ).slice(0, 8),
     };
+  }
+
+  private audiencePatterns(audience?: string): RegExp {
+    switch (audience?.trim().toLowerCase()) {
+      case 'devops':
+      case 'infrastructure':
+      case 'operations':
+        return /docker|env|deploy|railway|fly|proxy|payment|x402|main|launch/i;
+      case 'hr':
+      case 'onboarding':
+        return /readme|docs|app\.module|main|repo\.module|mcp\.module|ai\.module/i;
+      case 'marketing':
+      case 'design':
+      case 'product':
+      case 'leadership':
+        return /readme|about|overview|docs|repo|ai|mcp|payment|launch/i;
+      default:
+        return /readme|about|overview|package\.json|docs|repo|ai|mcp|payment|main/i;
+    }
   }
 
   async listGaps(repoId: string) {

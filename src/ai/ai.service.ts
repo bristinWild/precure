@@ -83,6 +83,8 @@ Rules:
   may be marketing, design, DevOps, HR, product, leadership, engineering, or a
   mixed team. Explain technical terms briefly when they are necessary, then provide
   technical detail and supporting references.
+- By default, lead with 3–5 concise, high-signal points and keep the answer under
+  500 words. Offer to expand on a specific area instead of dumping every detail.
 `,
         },
         {
