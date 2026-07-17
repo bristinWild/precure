@@ -1,6 +1,9 @@
 # Precure
 
-**Precure is a paid MCP service for understanding public GitHub repositories.** It builds a persistent local knowledge graph for a repository, then lets agents retrieve grounded answers, architecture, activity, and known risk gaps without repeatedly reading the entire source tree.
+**Precure is a paid MCP service for understanding public GitHub repositories.** It builds a persistent local knowledge graph for a repository, then lets people and agents retrieve grounded answers, architecture, activity, and known risk gaps without repeatedly reading the entire source tree.
+
+Read the [user and agent guide](docs/USER_AND_AGENT_GUIDE.md) for the why,
+how, persistent-memory model, team use cases, and coding-agent integration.
 
 It is built with NestJS, [cliper-memory](https://www.npmjs.com/package/cliper-memory), OpenAI, the Model Context Protocol (MCP), and the OKX x402 payment SDK.
 
@@ -15,7 +18,8 @@ It is built with NestJS, [cliper-memory](https://www.npmjs.com/package/cliper-me
 | MCP route price | `0.25` USDT per `POST /mcp` request |
 | Storage | Persistent volume mounted at `/app/storage` |
 
-The Railway endpoint has been smoke-tested to return an x402 `402 Payment Required` challenge. A complete paid settlement-and-replay test still requires a funded compatible buyer wallet.
+The Railway endpoint has been verified with x402 `402 Payment Required`
+challenges and funded paid settlement-and-replay tests for every MCP service.
 
 ## What it does
 
@@ -71,13 +75,16 @@ VibeMemory exposes `recall`. It returns compact, grounded memory snippets and me
 | Tool | Input | Result |
 | --- | --- | --- |
 | `init_repo` | `{ "github_url": "https://github.com/owner/repository" }` | `{ success, cloned, indexed, repoId }` |
-| `sync_repo` | `{ "repo": "<repoId>" }` | Pull the remote branch and refresh persistent memory |
-| `ask` | `{ "repo": "<repoId>", "question": "...", "audience": "marketing \| design \| DevOps \| HR \| product \| engineering" }` | Grounded, audience-aware natural-language answer with memory-ID citations |
-| `list_gaps` | `{ "repo": "<repoId>" }` | Gap memories, ordered high → medium → low severity |
-| `gap_report` | `{ "repo": "<repoId>" }` | Gap memories, dependency memories, and activity memories |
-| `get_architecture` | `{ "repo": "<repoId>" }` | Architecture and repository memories |
-| `activity` | `{ "repo": "<repoId>" }` | Commit, release, and timeline memories, newest first when date metadata exists |
-| VibeMemory `recall` | `{ "repo": "<repoId>", "query": "...", "max_results": 5 }` | Grounded memory snippets, relationships, and memory IDs for a coding agent |
+| `sync_repo` | `{ "repoId": "<repoId>" }` | Pull the remote branch and refresh persistent memory |
+| `ask` | `{ "repoId": "<repoId>", "question": "...", "audience": "marketing \| design \| DevOps \| HR \| product \| engineering" }` | Grounded, audience-aware natural-language answer with memory-ID citations |
+| `list_gaps` | `{ "repoId": "<repoId>" }` | Gap memories, ordered high → medium → low severity |
+| `gap_report` | `{ "repoId": "<repoId>" }` | Gap memories, dependency memories, and activity memories |
+| `get_architecture` | `{ "repoId": "<repoId>" }` | Architecture and repository memories |
+| `activity` | `{ "repoId": "<repoId>" }` | Commit, release, and timeline memories, newest first when date metadata exists |
+| VibeMemory `recall` | `{ "repoId": "<repoId>", "query": "...", "max_results": 5 }` | Grounded memory snippets, relationships, and memory IDs for a coding agent |
+
+`repo` remains accepted as a legacy alias, but new integrations should use
+`repoId`.
 
 The server returns tool results as JSON serialized in MCP text content. Tool failures are returned as MCP `isError: true` content.
 
@@ -88,9 +95,9 @@ initialize
   → retain mcp-session-id
 tools/call: init_repo({ github_url })
   → retain repoId
-tools/call: sync_repo({ repo: repoId })
-tools/call: ask({ repo: repoId, question })
-tools/call: list_gaps({ repo: repoId })
+tools/call: sync_repo({ repoId })
+tools/call: ask({ repoId, question })
+tools/call: list_gaps({ repoId })
 ```
 
 ## REST interface
