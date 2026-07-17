@@ -158,6 +158,44 @@ export class RepoService {
     return { success: true, cloned, indexed: true, alreadyIndexed, repoId };
   }
 
+  async sync(repoId: string) {
+    const repoPath = await this.initializedRepositoryPath(repoId);
+    const git = simpleGit(repoPath);
+    const branchSummary = await git.branch();
+    const branch = branchSummary.current;
+    if (!branch) {
+      throw new BadRequestException(
+        'Repository has no checked-out branch to synchronize.',
+      );
+    }
+
+    const previousHead = (await git.revparse(['HEAD'])).trim();
+    await git.raw(['fetch', '--depth', '50', 'origin', branch]);
+    await git.raw(['reset', '--hard', `origin/${branch}`]);
+    const currentHead = (await git.revparse(['HEAD'])).trim();
+
+    this.ensureLocalMemoryProvider();
+    await this.cliper.init({
+      path: repoPath,
+      register: false,
+      providers: ['local-json'],
+    });
+
+    return {
+      success: true,
+      repoId,
+      branch,
+      updated: previousHead !== currentHead,
+      previousHead,
+      currentHead,
+      indexed: true,
+      summary:
+        previousHead === currentHead
+          ? 'Repository was already up to date; its persistent memory was refreshed.'
+          : 'Repository was updated from its remote branch and its persistent memory was refreshed.',
+    };
+  }
+
   async ask(repoId: string, question: string, audience?: string) {
     if (!question?.trim()) {
       throw new BadRequestException('Question is required');

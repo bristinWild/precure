@@ -15,6 +15,11 @@ export class RepoController {
     return this.repoService.ask(repoId, question);
   }
 
+  @Post(':repoId/sync')
+  sync(@Param('repoId') repoId: string) {
+    return this.repoService.sync(repoId);
+  }
+
   @Get(':repoId/gaps')
   listGaps(@Param('repoId') repoId: string) {
     return this.repoService.listGaps(repoId);

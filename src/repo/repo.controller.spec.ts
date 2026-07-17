@@ -10,6 +10,7 @@ describe('RepoController', () => {
   let controller: RepoController;
   const repoService = {
     init: jest.fn(),
+    sync: jest.fn(),
     ask: jest.fn(),
     listGaps: jest.fn(),
     gapReport: jest.fn(),
@@ -26,9 +27,10 @@ describe('RepoController', () => {
     controller = module.get<RepoController>(RepoController);
   });
 
-  it('exposes the six repository operations', () => {
+  it('exposes the seven repository operations', () => {
     expect(controller).toBeDefined();
     expect(typeof controller.init).toBe('function');
+    expect(typeof controller.sync).toBe('function');
     expect(typeof controller.ask).toBe('function');
     expect(typeof controller.listGaps).toBe('function');
     expect(typeof controller.gapReport).toBe('function');

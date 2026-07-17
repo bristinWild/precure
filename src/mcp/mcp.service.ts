@@ -93,6 +93,15 @@ export class McpService {
         this.result(() => this.repos.ask(repo, question, audience)),
     );
     server.registerTool(
+      'sync_repo',
+      {
+        description:
+          'Update an initialized public repository from its remote branch and refresh its persistent memory.',
+        inputSchema: { repo: z.string() },
+      },
+      async ({ repo }) => this.result(() => this.repos.sync(repo)),
+    );
+    server.registerTool(
       'list_gaps',
       {
         description:

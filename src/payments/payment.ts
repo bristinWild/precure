@@ -7,6 +7,7 @@ const NETWORK = 'eip155:196' as const;
 
 const PRICES = {
   init: '$0.50',
+  sync: '$0.25',
   ask: '$0.02',
   gaps: '$0.10',
   gapReport: '$0.25',
@@ -83,6 +84,10 @@ export function configurePayments(express: Express): void {
         'POST /repo/:repoId/ask': route(
           PRICES.ask,
           'Answer a repository question',
+        ),
+        'POST /repo/:repoId/sync': route(
+          PRICES.sync,
+          'Synchronize a repository and refresh its persistent memory',
         ),
         'GET /repo/:repoId/gaps': route(
           PRICES.gaps,

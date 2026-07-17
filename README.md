@@ -29,17 +29,19 @@ Repository IDs are deterministic: they are a SHA-256 hash of the normalized GitH
 
 ## User-facing services
 
-The OKX.AI listing exposes five fixed-price API services. They all point to the same MCP endpoint, where the client invokes the relevant MCP tool.
+The OKX.AI listing exposes fixed-price API services. They can share the same MCP endpoint because the client invokes the relevant MCP tool.
 
 | Listing name | MCP tool | Customer provides |
 | --- | --- | --- |
 | Repo Memory Indexer | `init_repo` | A public GitHub repository URL |
+| Repository Memory Sync | `sync_repo` | Repository ID returned by the indexer |
 | Repo Memory Q&A | `ask` | Repository ID and a question |
 | Risk Gap Scanner | `list_gaps` | Repository ID |
 | Repository Risk Report | `gap_report` | Repository ID |
+| Architecture Mapper | `get_architecture` | Repository ID |
 | Repo Activity Timeline | `activity` | Repository ID |
 
-`get_architecture` is also available through MCP, but is not currently a separate marketplace listing.
+`sync_repo` refreshes the checked-out remote branch and rebuilds persistent local memory. Merged pull requests are included through the updated branch history; open pull requests require a separate GitHub integration.
 
 ## MCP interface
 
@@ -58,7 +60,8 @@ The server supports the standard MCP initialization and session flow. The first 
 | Tool | Input | Result |
 | --- | --- | --- |
 | `init_repo` | `{ "github_url": "https://github.com/owner/repository" }` | `{ success, cloned, indexed, repoId }` |
-| `ask` | `{ "repo": "<repoId>", "question": "..." }` | Grounded natural-language answer with memory-ID citations when available |
+| `sync_repo` | `{ "repo": "<repoId>" }` | Pull the remote branch and refresh persistent memory |
+| `ask` | `{ "repo": "<repoId>", "question": "...", "audience": "marketing \| design \| DevOps \| HR \| product \| engineering" }` | Grounded, audience-aware natural-language answer with memory-ID citations |
 | `list_gaps` | `{ "repo": "<repoId>" }` | Gap memories, ordered high → medium → low severity |
 | `gap_report` | `{ "repo": "<repoId>" }` | Gap memories, dependency memories, and activity memories |
 | `get_architecture` | `{ "repo": "<repoId>" }` | Architecture and repository memories |
@@ -73,6 +76,7 @@ initialize
   → retain mcp-session-id
 tools/call: init_repo({ github_url })
   → retain repoId
+tools/call: sync_repo({ repo: repoId })
 tools/call: ask({ repo: repoId, question })
 tools/call: list_gaps({ repo: repoId })
 ```
@@ -84,6 +88,7 @@ The same service also offers direct REST routes. These are useful for debugging 
 | Method | Route | Body / purpose |
 | --- | --- | --- |
 | `POST` | `/repo/init` | `{ "githubUrl": "https://github.com/owner/repository" }` |
+| `POST` | `/repo/:repoId/sync` | Update the remote branch and refresh persistent memory |
 | `POST` | `/repo/:repoId/ask` | `{ "question": "..." }` |
 | `GET` | `/repo/:repoId/gaps` | List known gap memories |
 | `GET` | `/repo/:repoId/gap-report` | Return gaps, dependencies, and activity |
@@ -99,6 +104,7 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | Route | Configured x402 price |
 | --- | ---: |
 | `POST /repo/init` | 0.50 USDT |
+| `POST /repo/:repoId/sync` | 0.25 USDT |
 | `POST /repo/:repoId/ask` | 0.02 USDT |
 | `GET /repo/:repoId/gaps` | 0.10 USDT |
 | `GET /repo/:repoId/gap-report` | 0.25 USDT |
@@ -123,7 +129,7 @@ MCP client / REST client
           v
 NestJS application
   ├── MCP controller (`/mcp`)
-  │     └── MCP server: init_repo, ask, list_gaps, gap_report,
+  │     └── MCP server: init_repo, sync_repo, ask, list_gaps, gap_report,
   │                      get_architecture, activity
   ├── Repository controller (`/repo/*`)
   ├── RepoService
@@ -273,7 +279,7 @@ At the time this README was updated, unit tests pass. The E2E suite requires Jes
 
 - **Public repositories only:** `init_repo` accepts only `https://github.com/<owner>/<repo>` URLs. Private repository access is not implemented.
 - **No clone resource limits yet:** cloning is shallow and uses `--filter=blob:none`, but the code currently has no explicit clone-size cap, concurrency limit, or timeout. Treat public ingestion as an abuse and cost-control surface.
-- **No refresh today:** re-running `init_repo` for an already initialized repository does not fetch upstream changes or rebuild its memory graph. Continuous sync is future work.
+- **Branch synchronization:** `sync_repo` fetches the checked-out remote branch and rebuilds local memory. It does not currently ingest open pull requests as separate objects.
 - **No per-tool MCP price today:** MCP is billed per `/mcp` HTTP request at 0.25 USDT; the lower per-route REST prices do not apply to MCP tool names.
 - **Single-process MCP sessions:** in-memory MCP session transports are held in the application process. Horizontal scaling requires shared session strategy or sticky routing.
 - **OpenAI data handling:** Q&A sends retrieved memory content and the caller’s question to OpenAI. Do not index repositories whose content should not be sent to that provider.
