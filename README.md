@@ -101,21 +101,23 @@ tools/call: ask({ repoId, question })
 tools/call: list_gaps({ repoId })
 ```
 
-## REST interface
+## Direct API interface
 
-The same service also offers direct REST routes. These are useful for debugging or a custom integration; marketplace clients should normally use MCP.
+Each marketplace service has a dedicated, session-free API endpoint. These are
+the preferred URLs for marketplace review and non-MCP clients. MCP-native
+clients can continue to use `/mcp` and `/vibememory/mcp`.
 
 | Method | Route | Body / purpose |
 | --- | --- | --- |
 | `POST` | `/repo/init` | `{ "githubUrl": "https://github.com/owner/repository" }` |
-| `POST` | `/repo/:repoId/sync` | Update the remote branch and refresh persistent memory |
-| `POST` | `/repo/:repoId/ask` | `{ "question": "..." }` |
-| `GET` | `/repo/:repoId/gaps` | List known gap memories |
-| `GET` | `/repo/:repoId/gap-report` | Return gaps, dependencies, and activity |
-| `GET` | `/repo/:repoId/architecture` | Return architecture and repository memories |
-| `GET` | `/repo/:repoId/activity` | Return commit, release, and timeline memories |
-| `GET` | `/repo/:repoId/memory.zip` | Download a ZIP containing generated memory JSON and metadata only; it never includes cloned source code or `.git` history |
-| `GET` | `/repo/memory/download?repoId=<repoId>` | Marketplace-friendly Download Memory endpoint; returns the same ZIP export |
+| `POST` | `/repo/ask` | `{ "repoId": "…", "question": "…", "audience": "optional" }` |
+| `POST` | `/repo/sync` | `{ "repoId": "…" }` |
+| `GET` | `/repo/gaps?repoId=<repoId>` | List known gap memories |
+| `GET` | `/repo/report?repoId=<repoId>` | Return gaps, dependency information, and activity |
+| `GET` | `/repo/architecture?repoId=<repoId>` | Return architecture and repository memories |
+| `GET` | `/repo/activity?repoId=<repoId>` | Return commit, release, and timeline memories |
+| `GET` | `/repo/memory/download?repoId=<repoId>` | Download a ZIP containing generated memory JSON and metadata only; it never includes cloned source code or `.git` history |
+| `POST` | `/vibememory/recall` | `{ "repoId": "…", "query": "…", "maxResults": 5 }` |
 
 `repoId` must be a 64-character lowercase SHA-256 hexadecimal string. Unknown or uninitialized IDs return the guidance: `Repository memory is not initialized; run cliper init first.`
 
@@ -125,18 +127,21 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 
 | Route | Configured x402 price |
 | --- | ---: |
-| `POST /repo/init` | 0.50 USDT |
+| `POST /repo/init` | 0.25 USDT |
 | `POST /repo/:repoId/sync` | 0.25 USDT |
-| `POST /repo/:repoId/ask` | 0.02 USDT |
-| `GET /repo/:repoId/gaps` | 0.10 USDT |
+| `POST /repo/ask` | 0.25 USDT |
+| `POST /repo/sync` | 0.25 USDT |
+| `GET /repo/gaps` | 0.25 USDT |
 | `GET /repo/:repoId/gap-report` | 0.25 USDT |
-| `GET /repo/:repoId/architecture` | 0.05 USDT |
-| `GET /repo/:repoId/activity` | 0.02 USDT |
-| `GET /repo/:repoId/memory.zip` | 4.00 USDT |
+| `GET /repo/report` | 0.25 USDT |
+| `GET /repo/architecture` | 0.25 USDT |
+| `GET /repo/activity` | 0.25 USDT |
+| `GET /repo/memory/download` | 4.00 USDT |
 | `GET` or `POST /mcp` | 0.25 USDT |
 | `GET` or `POST /vibememory/mcp` | 0.05 USDT |
+| `POST /vibememory/recall` | 0.05 USDT |
 
-Important: x402 middleware prices an HTTP route, not an individual JSON-RPC tool. Consequently, the marketplace uses a single **0.25 USDT** price for each MCP-backed listing. An MCP initialization request is also a `POST /mcp` request and is therefore challenged in x402 mode.
+Important: x402 middleware prices an HTTP route, not an individual JSON-RPC tool. The dedicated API routes above match the marketplace-listed fees directly. An MCP initialization request is also a `POST /mcp` request and is therefore challenged in x402 mode.
 
 An unpaid paid request should return `402` with a `PAYMENT-REQUIRED` header. This includes a plain `GET /mcp` endpoint probe, which allows OKX.AI's User-flow validator to verify that the endpoint is x402-gated. After a valid compatible payment, the payment SDK is expected to settle it and allow the request through with a settlement response header.
 
@@ -307,7 +312,7 @@ At the time this README was updated, unit tests pass. The E2E suite requires Jes
 - **No clone resource limits yet:** cloning is shallow and uses `--filter=blob:none`, but the code currently has no explicit clone-size cap, concurrency limit, or timeout. Treat public ingestion as an abuse and cost-control surface.
 - **Branch synchronization:** `sync_repo` fetches the checked-out remote branch and rebuilds local memory. It does not currently ingest open pull requests as separate objects.
 - **Concurrent writers:** indexing and synchronization use a volume-backed per-repository lock. Calls for the same repository wait in sequence so they do not clone, reset, or rebuild memory at the same time.
-- **No per-tool MCP price today:** MCP is billed per `/mcp` HTTP request at 0.25 USDT; the lower per-route REST prices do not apply to MCP tool names.
+- **MCP billing:** MCP is billed per `/mcp` HTTP request at 0.25 USDT. Use the direct API routes when a client needs a service-specific one-shot request.
 - **Single-process MCP sessions:** in-memory MCP session transports are held in the application process. Horizontal scaling requires shared session strategy or sticky routing.
 - **OpenAI data handling:** Q&A sends retrieved memory content and the caller’s question to OpenAI. Do not index repositories whose content should not be sent to that provider.
 

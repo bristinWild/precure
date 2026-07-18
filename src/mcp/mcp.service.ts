@@ -34,6 +34,10 @@ export class McpService {
     );
   }
 
+  async recall(repoId: string, query: string, maxResults?: number) {
+    return this.repos.recall(repoId, query, maxResults);
+  }
+
   private async handleServer(
     request: Request,
     response: Response,

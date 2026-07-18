@@ -54,7 +54,8 @@ ${this.formatSection('Commits', search.commits)}
 ${this.formatSection('Gaps', search.gaps)}
 `;
 
-    const response = await this.getClient().responses.create({
+    try {
+      const response = await this.getClient().responses.create({
       model: process.env.PRECURE_MODEL ?? 'gpt-5.5-2026-04-23',
       input: [
         {
@@ -104,8 +105,35 @@ ${context}
 `,
         },
       ],
-    });
+      }, { timeout: 15_000 });
 
-    return response.output_text;
+      return response.output_text;
+    } catch {
+      return this.fallbackAnswer(search, audience);
+    }
+  }
+
+  private fallbackAnswer(search: SearchResult, audience?: string): string {
+    const memories = [
+      ...search.architecture,
+      ...search.files,
+      ...search.dependencies,
+      ...search.packages,
+      ...search.repository,
+      ...search.commits,
+      ...search.gaps,
+    ].slice(0, 5);
+    const label = audience?.trim() || 'the requested audience';
+
+    if (!memories.length) {
+      return 'No relevant repository memory was found for this question.';
+    }
+
+    return `Precure could not generate a narrative answer within the response window. Here are the most relevant grounded records for ${label}:\n\n${memories
+      .map(
+        (memory) =>
+          `- [${memory.id}] ${memory.title}: ${memory.content.replace(/\s+/g, ' ').slice(0, 280)}`,
+      )
+      .join('\n')}`;
   }
 }

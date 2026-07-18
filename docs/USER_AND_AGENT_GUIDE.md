@@ -105,6 +105,17 @@ handles the payment challenge for each request. Standard Precure MCP calls cost
 Use `repoId` in new integrations. The older `repo` input name is still accepted
 for compatibility, but `repoId` is the documented contract.
 
+## Direct API endpoints for marketplace clients
+
+Marketplace clients that do not maintain an MCP session can call a dedicated
+paid endpoint for each service: `/repo/init`, `/repo/ask`, `/repo/sync`,
+`/repo/gaps`, `/repo/report`, `/repo/architecture`, `/repo/activity`, and
+`/repo/memory/download`; VibeMemory uses `/vibememory/recall`.
+
+These routes accept the service parameters directly and return their result on
+the paid replay. `repoId` is supplied in a JSON body for POST routes and as a
+query parameter for GET routes.
+
 ## Download Memory
 
 For a durable offline record, backup, or import into a compatible internal

@@ -11,9 +11,27 @@ export class RepoController {
     return this.repoService.init(githubUrl);
   }
 
+  @Post('ask')
+  askDirect(
+    @Body('repoId') repoId: string,
+    @Body('question') question: string,
+    @Body('audience') audience?: string,
+  ) {
+    return this.repoService.ask(repoId, question, audience);
+  }
+
   @Post(':repoId/ask')
-  ask(@Param('repoId') repoId: string, @Body('question') question: string) {
-    return this.repoService.ask(repoId, question);
+  ask(
+    @Param('repoId') repoId: string,
+    @Body('question') question: string,
+    @Body('audience') audience?: string,
+  ) {
+    return this.repoService.ask(repoId, question, audience);
+  }
+
+  @Post('sync')
+  syncDirect(@Body('repoId') repoId: string) {
+    return this.repoService.sync(repoId);
   }
 
   @Post(':repoId/sync')
@@ -26,8 +44,18 @@ export class RepoController {
     return this.repoService.listGaps(repoId);
   }
 
+  @Get('gaps')
+  listGapsDirect(@Query('repoId') repoId: string) {
+    return this.repoService.listGaps(repoId);
+  }
+
   @Get(':repoId/gap-report')
   gapReport(@Param('repoId') repoId: string) {
+    return this.repoService.gapReport(repoId);
+  }
+
+  @Get('report')
+  gapReportDirect(@Query('repoId') repoId: string) {
     return this.repoService.gapReport(repoId);
   }
 
@@ -36,8 +64,18 @@ export class RepoController {
     return this.repoService.getArchitecture(repoId);
   }
 
+  @Get('architecture')
+  getArchitectureDirect(@Query('repoId') repoId: string) {
+    return this.repoService.getArchitecture(repoId);
+  }
+
   @Get(':repoId/activity')
   activity(@Param('repoId') repoId: string) {
+    return this.repoService.activity(repoId);
+  }
+
+  @Get('activity')
+  activityDirect(@Query('repoId') repoId: string) {
     return this.repoService.activity(repoId);
   }
 

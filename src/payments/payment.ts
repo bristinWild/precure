@@ -6,13 +6,13 @@ import type { Express, NextFunction, Request, Response } from 'express';
 const NETWORK = 'eip155:196' as const;
 
 const PRICES = {
-  init: '$0.50',
+  init: '$0.25',
   sync: '$0.25',
-  ask: '$0.02',
-  gaps: '$0.10',
+  ask: '$0.25',
+  gaps: '$0.25',
   gapReport: '$0.25',
-  architecture: '$0.05',
-  activity: '$0.02',
+  architecture: '$0.25',
+  activity: '$0.25',
   memoryDownload: '$4.00',
   mcp: '$0.25',
   vibeMemory: '$0.05',
@@ -87,7 +87,12 @@ export function configurePayments(express: Express): void {
           PRICES.ask,
           'Answer a repository question',
         ),
+        'POST /repo/ask': route(PRICES.ask, 'Answer a repository question'),
         'POST /repo/:repoId/sync': route(
+          PRICES.sync,
+          'Synchronize a repository and refresh its persistent memory',
+        ),
+        'POST /repo/sync': route(
           PRICES.sync,
           'Synchronize a repository and refresh its persistent memory',
         ),
@@ -95,7 +100,12 @@ export function configurePayments(express: Express): void {
           PRICES.gaps,
           'List repository risk gaps',
         ),
+        'GET /repo/gaps': route(PRICES.gaps, 'List repository risk gaps'),
         'GET /repo/:repoId/gap-report': route(
+          PRICES.gapReport,
+          'Generate a structured repository risk report',
+        ),
+        'GET /repo/report': route(
           PRICES.gapReport,
           'Generate a structured repository risk report',
         ),
@@ -103,7 +113,15 @@ export function configurePayments(express: Express): void {
           PRICES.architecture,
           'Retrieve the repository architecture',
         ),
+        'GET /repo/architecture': route(
+          PRICES.architecture,
+          'Retrieve the repository architecture',
+        ),
         'GET /repo/:repoId/activity': route(
+          PRICES.activity,
+          'Retrieve repository activity and releases',
+        ),
+        'GET /repo/activity': route(
           PRICES.activity,
           'Retrieve repository activity and releases',
         ),
@@ -122,6 +140,10 @@ export function configurePayments(express: Express): void {
           'Open or resume a VibeMemory MCP session',
         ),
         'POST /vibememory/mcp': route(
+          PRICES.vibeMemory,
+          'Recall persistent repository memory for a coding agent',
+        ),
+        'POST /vibememory/recall': route(
           PRICES.vibeMemory,
           'Recall persistent repository memory for a coding agent',
         ),
