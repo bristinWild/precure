@@ -11,6 +11,11 @@ export class RepoController {
     return this.repoService.init(githubUrl);
   }
 
+  @Get('init')
+  initFromQuery(@Query('githubUrl') githubUrl: string) {
+    return this.repoService.init(githubUrl);
+  }
+
   @Post('ask')
   askDirect(
     @Body('repoId') bodyRepoId: string,
@@ -27,6 +32,15 @@ export class RepoController {
     );
   }
 
+  @Get('ask')
+  askFromQuery(
+    @Query('repoId') repoId: string,
+    @Query('question') question: string,
+    @Query('audience') audience?: string,
+  ) {
+    return this.repoService.ask(repoId, question, audience);
+  }
+
   @Post(':repoId/ask')
   ask(
     @Param('repoId') repoId: string,
@@ -39,6 +53,11 @@ export class RepoController {
   @Post('sync')
   syncDirect(@Body('repoId') bodyRepoId: string, @Query('repoId') queryRepoId: string) {
     return this.repoService.sync(bodyRepoId ?? queryRepoId);
+  }
+
+  @Get('sync')
+  syncFromQuery(@Query('repoId') repoId: string) {
+    return this.repoService.sync(repoId);
   }
 
   @Post(':repoId/sync')

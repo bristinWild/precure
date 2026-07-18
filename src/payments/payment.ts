@@ -100,6 +100,11 @@ export function configurePayments(express: Express): void {
             ),
           ),
         ),
+        'GET /repo/init': route(
+          PRICES.init,
+          'Initialize a repository memory graph',
+          githubUrlQueryInput(),
+        ),
         'POST /repo/:repoId/ask': route(
           PRICES.ask,
           'Answer a repository question',
@@ -123,6 +128,11 @@ export function configurePayments(express: Express): void {
             ),
           ),
         ),
+        'GET /repo/ask': route(
+          PRICES.ask,
+          'Answer a repository question',
+          askQueryInput(),
+        ),
         'POST /repo/:repoId/sync': route(
           PRICES.sync,
           'Synchronize a repository and refresh its persistent memory',
@@ -134,6 +144,11 @@ export function configurePayments(express: Express): void {
             { repoId: 'repository-id-from-repo-memory-indexer' },
             repoIdBodySchema(),
           ),
+        ),
+        'GET /repo/sync': route(
+          PRICES.sync,
+          'Synchronize a repository and refresh its persistent memory',
+          repoIdQueryInput(),
         ),
         'GET /repo/:repoId/gaps': route(
           PRICES.gaps,
@@ -212,6 +227,11 @@ export function configurePayments(express: Express): void {
             ),
           ),
         ),
+        'GET /vibememory/recall': route(
+          PRICES.vibeMemory,
+          'Recall persistent repository memory for a coding agent',
+          vibeMemoryQueryInput(),
+        ),
       },
       resourceServer,
     ),
@@ -275,6 +295,57 @@ function repoIdBodySchema() {
     },
     ['repoId'],
   );
+}
+
+function githubUrlQueryInput() {
+  return declareDiscoveryExtension({
+    input: {
+      githubUrl: 'https://github.com/owner/repository',
+    },
+    inputSchema: objectSchema(
+      { githubUrl: stringField('Public GitHub repository URL.') },
+      ['githubUrl'],
+    ),
+    output: { example: { ok: true } },
+  }) as Record<string, unknown>;
+}
+
+function askQueryInput() {
+  return declareDiscoveryExtension({
+    input: {
+      repoId: 'repository-id-from-repo-memory-indexer',
+      question: 'What is this project and who is it for?',
+      audience: 'product',
+    },
+    inputSchema: objectSchema(
+      {
+        repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
+        question: stringField('Plain-language question about the repository.'),
+        audience: stringField('Optional audience, such as product, devops, marketing, design, or HR.'),
+      },
+      ['repoId', 'question'],
+    ),
+    output: { example: { ok: true } },
+  }) as Record<string, unknown>;
+}
+
+function vibeMemoryQueryInput() {
+  return declareDiscoveryExtension({
+    input: {
+      repoId: 'repository-id-from-repo-memory-indexer',
+      query: 'Where is payment middleware configured?',
+      maxResults: 5,
+    },
+    inputSchema: objectSchema(
+      {
+        repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
+        query: stringField('Coding-task query to recall from persistent memory.'),
+        maxResults: { type: 'number', description: 'Optional maximum number of memory records to return.' },
+      },
+      ['repoId', 'query'],
+    ),
+    output: { example: { ok: true } },
+  }) as Record<string, unknown>;
 }
 
 function repoIdQueryInput() {
