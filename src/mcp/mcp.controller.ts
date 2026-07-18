@@ -1,4 +1,4 @@
-import { All, Body, Controller, Post, Req, Res } from '@nestjs/common';
+import { All, Body, Controller, Post, Query, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { McpService } from './mcp.service';
 
@@ -18,10 +18,14 @@ export class McpController {
 
   @Post('vibememory/recall')
   recallVibeMemory(
-    @Body('repoId') repoId: string,
-    @Body('query') query: string,
-    @Body('maxResults') maxResults?: number,
+    @Body('repoId') bodyRepoId: string,
+    @Body('query') bodyQuery: string,
+    @Body('maxResults') bodyMaxResults: number | undefined,
+    @Query('repoId') queryRepoId: string,
+    @Query('query') queryQuery: string,
+    @Query('maxResults') queryMaxResults?: string,
   ) {
-    return this.mcp.recall(repoId, query, maxResults);
+    const maxResults = bodyMaxResults ?? (queryMaxResults ? Number(queryMaxResults) : undefined);
+    return this.mcp.recall(bodyRepoId ?? queryRepoId, bodyQuery ?? queryQuery, maxResults);
   }
 }

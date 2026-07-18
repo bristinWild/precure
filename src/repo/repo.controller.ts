@@ -13,11 +13,18 @@ export class RepoController {
 
   @Post('ask')
   askDirect(
-    @Body('repoId') repoId: string,
-    @Body('question') question: string,
-    @Body('audience') audience?: string,
+    @Body('repoId') bodyRepoId: string,
+    @Body('question') bodyQuestion: string,
+    @Body('audience') bodyAudience: string | undefined,
+    @Query('repoId') queryRepoId: string,
+    @Query('question') queryQuestion: string,
+    @Query('audience') queryAudience?: string,
   ) {
-    return this.repoService.ask(repoId, question, audience);
+    return this.repoService.ask(
+      bodyRepoId ?? queryRepoId,
+      bodyQuestion ?? queryQuestion,
+      bodyAudience ?? queryAudience,
+    );
   }
 
   @Post(':repoId/ask')
@@ -30,8 +37,8 @@ export class RepoController {
   }
 
   @Post('sync')
-  syncDirect(@Body('repoId') repoId: string) {
-    return this.repoService.sync(repoId);
+  syncDirect(@Body('repoId') bodyRepoId: string, @Query('repoId') queryRepoId: string) {
+    return this.repoService.sync(bodyRepoId ?? queryRepoId);
   }
 
   @Post(':repoId/sync')

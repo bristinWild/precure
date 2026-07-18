@@ -1,6 +1,10 @@
 import { paymentMiddleware, x402ResourceServer } from '@okxweb3/x402-express';
 import { OKXFacilitatorClient } from '@okxweb3/x402-core';
 import { ExactEvmScheme } from '@okxweb3/x402-evm/exact/server';
+import {
+  bazaarResourceServerExtension,
+  declareDiscoveryExtension,
+} from '@x402/extensions/bazaar';
 import type { Express, NextFunction, Request, Response } from 'express';
 
 const NETWORK = 'eip155:196' as const;
@@ -72,6 +76,10 @@ export function configurePayments(express: Express): void {
     NETWORK,
     new ExactEvmScheme(),
   );
+  // Include standard x402 v2 discovery metadata in each challenge.  This tells
+  // payment clients how to preserve a service's input when replaying the paid
+  // request, rather than leaving a POST body or GET query empty after signing.
+  resourceServer.registerExtension(bazaarResourceServerExtension as never);
 
   express.use(
     createFreeTierMiddleware(Number.isNaN(freeCalls) ? 3 : freeCalls),
@@ -82,12 +90,39 @@ export function configurePayments(express: Express): void {
         'POST /repo/init': route(
           PRICES.init,
           'Initialize a repository memory graph',
+          postInput(
+            { githubUrl: 'https://github.com/owner/repository' },
+            objectSchema(
+              {
+                githubUrl: stringField('Public GitHub repository URL.'),
+              },
+              ['githubUrl'],
+            ),
+          ),
         ),
         'POST /repo/:repoId/ask': route(
           PRICES.ask,
           'Answer a repository question',
         ),
-        'POST /repo/ask': route(PRICES.ask, 'Answer a repository question'),
+        'POST /repo/ask': route(
+          PRICES.ask,
+          'Answer a repository question',
+          postInput(
+            {
+              repoId: 'repository-id-from-repo-memory-indexer',
+              question: 'What is this project and who is it for?',
+              audience: 'product',
+            },
+            objectSchema(
+              {
+                repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
+                question: stringField('Plain-language question about the repository.'),
+                audience: stringField('Optional audience, such as product, devops, marketing, design, or HR.'),
+              },
+              ['repoId', 'question'],
+            ),
+          ),
+        ),
         'POST /repo/:repoId/sync': route(
           PRICES.sync,
           'Synchronize a repository and refresh its persistent memory',
@@ -95,12 +130,20 @@ export function configurePayments(express: Express): void {
         'POST /repo/sync': route(
           PRICES.sync,
           'Synchronize a repository and refresh its persistent memory',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
         ),
         'GET /repo/:repoId/gaps': route(
           PRICES.gaps,
           'List repository risk gaps',
         ),
-        'GET /repo/gaps': route(PRICES.gaps, 'List repository risk gaps'),
+        'GET /repo/gaps': route(
+          PRICES.gaps,
+          'List repository risk gaps',
+          repoIdQueryInput(),
+        ),
         'GET /repo/:repoId/gap-report': route(
           PRICES.gapReport,
           'Generate a structured repository risk report',
@@ -108,6 +151,7 @@ export function configurePayments(express: Express): void {
         'GET /repo/report': route(
           PRICES.gapReport,
           'Generate a structured repository risk report',
+          repoIdQueryInput(),
         ),
         'GET /repo/:repoId/architecture': route(
           PRICES.architecture,
@@ -116,6 +160,7 @@ export function configurePayments(express: Express): void {
         'GET /repo/architecture': route(
           PRICES.architecture,
           'Retrieve the repository architecture',
+          repoIdQueryInput(),
         ),
         'GET /repo/:repoId/activity': route(
           PRICES.activity,
@@ -124,6 +169,7 @@ export function configurePayments(express: Express): void {
         'GET /repo/activity': route(
           PRICES.activity,
           'Retrieve repository activity and releases',
+          repoIdQueryInput(),
         ),
         'GET /repo/:repoId/memory.zip': route(
           PRICES.memoryDownload,
@@ -132,6 +178,7 @@ export function configurePayments(express: Express): void {
         'GET /repo/memory/download': route(
           PRICES.memoryDownload,
           'Download a complete Precure repository memory export',
+          repoIdQueryInput(),
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
@@ -146,6 +193,24 @@ export function configurePayments(express: Express): void {
         'POST /vibememory/recall': route(
           PRICES.vibeMemory,
           'Recall persistent repository memory for a coding agent',
+          postInput(
+            {
+              repoId: 'repository-id-from-repo-memory-indexer',
+              query: 'Where is payment middleware configured?',
+              maxResults: 5,
+            },
+            objectSchema(
+              {
+                repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
+                query: stringField('Coding-task query to recall from persistent memory.'),
+                maxResults: {
+                  type: 'number',
+                  description: 'Optional maximum number of memory records to return.',
+                },
+              },
+              ['repoId', 'query'],
+            ),
+          ),
         ),
       },
       resourceServer,
@@ -153,7 +218,11 @@ export function configurePayments(express: Express): void {
   );
 }
 
-function route(price: string, description: string) {
+function route(
+  price: string,
+  description: string,
+  extensions?: Record<string, unknown>,
+) {
   return {
     accepts: [
       {
@@ -165,5 +234,55 @@ function route(price: string, description: string) {
     ],
     description,
     mimeType: 'application/json',
+    ...(extensions ? { extensions } : {}),
   };
+}
+
+function stringField(description: string) {
+  return { type: 'string', description };
+}
+
+function objectSchema(
+  properties: Record<string, unknown>,
+  required: string[],
+) {
+  return {
+    type: 'object',
+    properties,
+    required,
+    additionalProperties: false,
+  };
+}
+
+function postInput(
+  input: Record<string, unknown>,
+  inputSchema: Record<string, unknown>,
+) {
+  return declareDiscoveryExtension({
+    bodyType: 'json',
+    input,
+    inputSchema,
+    output: {
+      example: { ok: true },
+    },
+  }) as Record<string, unknown>;
+}
+
+function repoIdBodySchema() {
+  return objectSchema(
+    {
+      repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
+    },
+    ['repoId'],
+  );
+}
+
+function repoIdQueryInput() {
+  return declareDiscoveryExtension({
+    input: { repoId: 'repository-id-from-repo-memory-indexer' },
+    inputSchema: repoIdBodySchema(),
+    output: {
+      example: { ok: true },
+    },
+  }) as Record<string, unknown>;
 }
