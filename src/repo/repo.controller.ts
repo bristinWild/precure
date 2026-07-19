@@ -51,7 +51,10 @@ export class RepoController {
   }
 
   @Post('sync')
-  syncDirect(@Body('repoId') bodyRepoId: string, @Query('repoId') queryRepoId: string) {
+  syncDirect(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+  ) {
     return this.repoService.sync(bodyRepoId ?? queryRepoId);
   }
 
@@ -75,6 +78,14 @@ export class RepoController {
     return this.repoService.listGaps(repoId);
   }
 
+  @Post('gaps')
+  listGapsFromBody(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+  ) {
+    return this.repoService.listGaps(bodyRepoId ?? queryRepoId);
+  }
+
   @Get(':repoId/gap-report')
   gapReport(@Param('repoId') repoId: string) {
     return this.repoService.gapReport(repoId);
@@ -83,6 +94,14 @@ export class RepoController {
   @Get('report')
   gapReportDirect(@Query('repoId') repoId: string) {
     return this.repoService.gapReport(repoId);
+  }
+
+  @Post('report')
+  gapReportFromBody(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+  ) {
+    return this.repoService.gapReport(bodyRepoId ?? queryRepoId);
   }
 
   @Get(':repoId/architecture')
@@ -95,6 +114,14 @@ export class RepoController {
     return this.repoService.getArchitecture(repoId);
   }
 
+  @Post('architecture')
+  getArchitectureFromBody(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+  ) {
+    return this.repoService.getArchitecture(bodyRepoId ?? queryRepoId);
+  }
+
   @Get(':repoId/activity')
   activity(@Param('repoId') repoId: string) {
     return this.repoService.activity(repoId);
@@ -103,6 +130,14 @@ export class RepoController {
   @Get('activity')
   activityDirect(@Query('repoId') repoId: string) {
     return this.repoService.activity(repoId);
+  }
+
+  @Post('activity')
+  activityFromBody(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+  ) {
+    return this.repoService.activity(bodyRepoId ?? queryRepoId);
   }
 
   @Get(':repoId/memory.zip')
@@ -128,5 +163,14 @@ export class RepoController {
     @Res() response: Response,
   ): Promise<void> {
     return this.downloadMemory(repoId, response);
+  }
+
+  @Post('memory/download')
+  async downloadMemoryFromBody(
+    @Body('repoId') bodyRepoId: string,
+    @Query('repoId') queryRepoId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.downloadMemory(bodyRepoId ?? queryRepoId, response);
   }
 }

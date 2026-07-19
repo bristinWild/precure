@@ -11,17 +11,14 @@ import type { Archiver } from 'archiver';
 import simpleGit from 'simple-git';
 import { Cliper } from 'cliper-memory';
 import type { SearchResult } from 'cliper-memory';
-import {
-  loadConfig,
-  saveConfig,
-} from 'cliper-memory/dist/config/config';
+import { loadConfig, saveConfig } from 'cliper-memory/dist/config/config';
 import type { MemoryObject } from 'cliper-memory/dist/sdk/memory/memory';
 import { AiService } from '../ai/ai.service';
 
 const REPOSITORY_NOT_INITIALIZED =
   'Repository memory is not initialized; run cliper init first.';
 const LOCK_RETRY_MS = 250;
-const LOCK_WAIT_TIMEOUT_MS = 4 * 60 * 1000;
+const DEFAULT_LOCK_WAIT_TIMEOUT_MS = 10 * 1000;
 const STALE_LOCK_MS = 20 * 60 * 1000;
 
 const createArchive = require('archiver') as (
@@ -219,7 +216,15 @@ export class RepoService {
       path.dirname(repoPath),
       `.${repoId}.precure.lock`,
     );
-    const deadline = Date.now() + LOCK_WAIT_TIMEOUT_MS;
+    const configuredLockWait = Number.parseInt(
+      process.env.PRECURE_LOCK_WAIT_TIMEOUT_MS ?? '',
+      10,
+    );
+    const lockWaitTimeout =
+      Number.isFinite(configuredLockWait) && configuredLockWait >= 0
+        ? configuredLockWait
+        : DEFAULT_LOCK_WAIT_TIMEOUT_MS;
+    const deadline = Date.now() + lockWaitTimeout;
 
     await fs.ensureDir(path.dirname(lockPath));
     while (true) {
@@ -311,10 +316,9 @@ export class RepoService {
       repoId,
       query,
       memories: selected,
-      summary:
-        selected.length
-          ? `Returned ${selected.length} grounded memory item${selected.length === 1 ? '' : 's'} for the coding agent.`
-          : 'No matching memory was found. Try a more specific task, component, file, or package name.',
+      summary: selected.length
+        ? `Returned ${selected.length} grounded memory item${selected.length === 1 ? '' : 's'} for the coding agent.`
+        : 'No matching memory was found. Try a more specific task, component, file, or package name.',
     };
   }
 
@@ -371,9 +375,7 @@ export class RepoService {
     const contextualFiles = memories.filter(
       (memory) =>
         memory.type === 'file' &&
-        audiencePatterns.test(
-          `${memory.id} ${memory.title}`,
-        ),
+        audiencePatterns.test(`${memory.id} ${memory.title}`),
     );
     const contextualArchitecture = memories.filter(
       (memory) =>
@@ -392,15 +394,15 @@ export class RepoService {
         retrieval.repository,
         memories.filter((memory) => memory.type === 'repository'),
       ).slice(0, 4),
-      architecture: merge(
-        retrieval.architecture,
-        contextualArchitecture,
-      ).slice(0, 8),
+      architecture: merge(retrieval.architecture, contextualArchitecture).slice(
+        0,
+        8,
+      ),
       files: merge(retrieval.files, contextualFiles).slice(0, 8),
-      dependencies: merge(
-        retrieval.dependencies,
-        contextualDependencies,
-      ).slice(0, 8),
+      dependencies: merge(retrieval.dependencies, contextualDependencies).slice(
+        0,
+        8,
+      ),
       packages: merge(
         retrieval.packages,
         memories.filter((memory) => memory.type === 'package'),
@@ -445,8 +447,12 @@ export class RepoService {
 
   async getArchitecture(repoId: string) {
     const memories = await this.memories(repoId);
-    const architecture = memories.filter((memory) => memory.type === 'architecture');
-    const repository = memories.filter((memory) => memory.type === 'repository');
+    const architecture = memories.filter(
+      (memory) => memory.type === 'architecture',
+    );
+    const repository = memories.filter(
+      (memory) => memory.type === 'repository',
+    );
     return {
       repoId,
       stakeholderSummary: this.architectureSummary(architecture, repository),
@@ -504,7 +510,9 @@ export class RepoService {
     const high = gaps.filter((gap) => gap.metadata?.severity === 'high');
     const medium = gaps.filter((gap) => gap.metadata?.severity === 'medium');
     const low = gaps.filter((gap) => gap.metadata?.severity === 'low');
-    const keyFindings = high.slice(0, 3).map((gap) => gap.metadata?.description ?? gap.title);
+    const keyFindings = high
+      .slice(0, 3)
+      .map((gap) => gap.metadata?.description ?? gap.title);
 
     return {
       overview:
@@ -528,16 +536,17 @@ export class RepoService {
     repository: MemoryObject[],
   ) {
     const details = repository.find((memory) => memory.metadata?.language) as
-      | (MemoryObject & { metadata?: RepositoryStatistics })
-      | undefined;
+      (MemoryObject & { metadata?: RepositoryStatistics }) | undefined;
     const modules = details?.metadata?.modules?.slice(0, 8) ?? [];
-    const language = details?.metadata?.language ?? 'an unspecified technology stack';
+    const language =
+      details?.metadata?.language ?? 'an unspecified technology stack';
     const fileCount = details?.metadata?.fileCount;
 
     return {
       overview: `This is a ${language} codebase${fileCount ? ` with ${fileCount} indexed files` : ''}. Its structure is represented by ${architecture.length} component relationship${architecture.length === 1 ? '' : 's'}, so a cross-functional team can understand how the main parts fit together without reading each file.`,
       mainAreas: modules,
-      plainEnglish: 'The architecture records show which parts are responsible for data, payments, AI, and the MCP interface, and how those parts depend on one another. This helps product and design understand feature boundaries, DevOps identify operational components, and marketing or HR prepare accurate launch and onboarding material.',
+      plainEnglish:
+        'The architecture records show which parts are responsible for data, payments, AI, and the MCP interface, and how those parts depend on one another. This helps product and design understand feature boundaries, DevOps identify operational components, and marketing or HR prepare accurate launch and onboarding material.',
     };
   }
 
@@ -546,7 +555,8 @@ export class RepoService {
     const releases = activity.filter((item) => item.type === 'release').length;
     return {
       overview: `The indexed history contains ${commits} recent commit${commits === 1 ? '' : 's'} and ${releases} release${releases === 1 ? '' : 's'}. This helps every stakeholder understand whether the product is actively changing before planning launches, design work, operations, or onboarding.`,
-      plainEnglish: 'Commits are recorded changes to the code. Releases are versioned milestones intended for users or deployment.',
+      plainEnglish:
+        'Commits are recorded changes to the code. Releases are versioned milestones intended for users or deployment.',
     };
   }
 

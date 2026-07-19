@@ -120,9 +120,15 @@ export function configurePayments(express: Express): void {
             },
             objectSchema(
               {
-                repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
-                question: stringField('Plain-language question about the repository.'),
-                audience: stringField('Optional audience, such as product, devops, marketing, design, or HR.'),
+                repoId: stringField(
+                  'Repository ID returned by Repo Memory Indexer.',
+                ),
+                question: stringField(
+                  'Plain-language question about the repository.',
+                ),
+                audience: stringField(
+                  'Optional audience, such as product, devops, marketing, design, or HR.',
+                ),
               },
               ['repoId', 'question'],
             ),
@@ -159,6 +165,14 @@ export function configurePayments(express: Express): void {
           'List repository risk gaps',
           repoIdQueryInput(),
         ),
+        'POST /repo/gaps': route(
+          PRICES.gaps,
+          'List repository risk gaps',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
+        ),
         'GET /repo/:repoId/gap-report': route(
           PRICES.gapReport,
           'Generate a structured repository risk report',
@@ -167,6 +181,14 @@ export function configurePayments(express: Express): void {
           PRICES.gapReport,
           'Generate a structured repository risk report',
           repoIdQueryInput(),
+        ),
+        'POST /repo/report': route(
+          PRICES.gapReport,
+          'Generate a structured repository risk report',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
         ),
         'GET /repo/:repoId/architecture': route(
           PRICES.architecture,
@@ -177,6 +199,14 @@ export function configurePayments(express: Express): void {
           'Retrieve the repository architecture',
           repoIdQueryInput(),
         ),
+        'POST /repo/architecture': route(
+          PRICES.architecture,
+          'Retrieve the repository architecture',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
+        ),
         'GET /repo/:repoId/activity': route(
           PRICES.activity,
           'Retrieve repository activity and releases',
@@ -186,14 +216,34 @@ export function configurePayments(express: Express): void {
           'Retrieve repository activity and releases',
           repoIdQueryInput(),
         ),
+        'POST /repo/activity': route(
+          PRICES.activity,
+          'Retrieve repository activity and releases',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
+        ),
         'GET /repo/:repoId/memory.zip': route(
           PRICES.memoryDownload,
           'Download a complete Precure repository memory export',
+          undefined,
+          'application/zip',
         ),
         'GET /repo/memory/download': route(
           PRICES.memoryDownload,
           'Download a complete Precure repository memory export',
           repoIdQueryInput(),
+          'application/zip',
+        ),
+        'POST /repo/memory/download': route(
+          PRICES.memoryDownload,
+          'Download a complete Precure repository memory export',
+          postInput(
+            { repoId: 'repository-id-from-repo-memory-indexer' },
+            repoIdBodySchema(),
+          ),
+          'application/zip',
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
@@ -216,11 +266,16 @@ export function configurePayments(express: Express): void {
             },
             objectSchema(
               {
-                repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
-                query: stringField('Coding-task query to recall from persistent memory.'),
+                repoId: stringField(
+                  'Repository ID returned by Repo Memory Indexer.',
+                ),
+                query: stringField(
+                  'Coding-task query to recall from persistent memory.',
+                ),
                 maxResults: {
                   type: 'number',
-                  description: 'Optional maximum number of memory records to return.',
+                  description:
+                    'Optional maximum number of memory records to return.',
                 },
               },
               ['repoId', 'query'],
@@ -242,6 +297,7 @@ function route(
   price: string,
   description: string,
   extensions?: Record<string, unknown>,
+  mimeType = 'application/json',
 ) {
   return {
     accepts: [
@@ -253,7 +309,7 @@ function route(
       },
     ],
     description,
-    mimeType: 'application/json',
+    mimeType,
     ...(extensions ? { extensions } : {}),
   };
 }
@@ -262,10 +318,7 @@ function stringField(description: string) {
   return { type: 'string', description };
 }
 
-function objectSchema(
-  properties: Record<string, unknown>,
-  required: string[],
-) {
+function objectSchema(properties: Record<string, unknown>, required: string[]) {
   return {
     type: 'object',
     properties,
@@ -321,7 +374,9 @@ function askQueryInput() {
       {
         repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
         question: stringField('Plain-language question about the repository.'),
-        audience: stringField('Optional audience, such as product, devops, marketing, design, or HR.'),
+        audience: stringField(
+          'Optional audience, such as product, devops, marketing, design, or HR.',
+        ),
       },
       ['repoId', 'question'],
     ),
@@ -339,8 +394,13 @@ function vibeMemoryQueryInput() {
     inputSchema: objectSchema(
       {
         repoId: stringField('Repository ID returned by Repo Memory Indexer.'),
-        query: stringField('Coding-task query to recall from persistent memory.'),
-        maxResults: { type: 'number', description: 'Optional maximum number of memory records to return.' },
+        query: stringField(
+          'Coding-task query to recall from persistent memory.',
+        ),
+        maxResults: {
+          type: 'number',
+          description: 'Optional maximum number of memory records to return.',
+        },
       },
       ['repoId', 'query'],
     ),

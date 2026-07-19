@@ -44,8 +44,14 @@ describe('RepoController', () => {
     expect(typeof controller.syncDirect).toBe('function');
     expect(typeof controller.syncFromQuery).toBe('function');
     expect(typeof controller.listGapsDirect).toBe('function');
+    expect(typeof controller.listGapsFromBody).toBe('function');
     expect(typeof controller.gapReportDirect).toBe('function');
+    expect(typeof controller.gapReportFromBody).toBe('function');
     expect(typeof controller.getArchitectureDirect).toBe('function');
+    expect(typeof controller.getArchitectureFromBody).toBe('function');
     expect(typeof controller.activityDirect).toBe('function');
+    expect(typeof controller.activityFromBody).toBe('function');
+    expect(typeof controller.downloadMemoryFromQuery).toBe('function');
+    expect(typeof controller.downloadMemoryFromBody).toBe('function');
   });
 });
