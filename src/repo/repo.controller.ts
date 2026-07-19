@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { RepoService } from './repo.service';
 
 @Controller('repo')
@@ -158,19 +167,41 @@ export class RepoController {
   }
 
   @Get('memory/download')
-  async downloadMemoryFromQuery(
+  downloadMemoryFromQuery(
     @Query('repoId') repoId: string,
-    @Res() response: Response,
-  ): Promise<void> {
-    return this.downloadMemory(repoId, response);
+    @Req() request: Request,
+  ) {
+    return this.repoService.createMemoryDownloadLink(
+      repoId,
+      this.publicBaseUrl(request),
+    );
   }
 
   @Post('memory/download')
-  async downloadMemoryFromBody(
+  downloadMemoryFromBody(
     @Body('repoId') bodyRepoId: string,
     @Query('repoId') queryRepoId: string,
+    @Req() request: Request,
+  ) {
+    return this.repoService.createMemoryDownloadLink(
+      bodyRepoId ?? queryRepoId,
+      this.publicBaseUrl(request),
+    );
+  }
+
+  @Get('memory/file')
+  async downloadMemoryFile(
+    @Query('token') token: string,
     @Res() response: Response,
   ): Promise<void> {
-    return this.downloadMemory(bodyRepoId ?? queryRepoId, response);
+    const repoId = this.repoService.verifyMemoryDownloadToken(token);
+    response.setHeader('cache-control', 'private, no-store');
+    return this.downloadMemory(repoId, response);
+  }
+
+  private publicBaseUrl(request: Request): string {
+    const configured = process.env.PRECURE_PUBLIC_BASE_URL?.trim();
+    if (configured) return configured;
+    return `${request.protocol}://${request.get('host')}`;
   }
 }

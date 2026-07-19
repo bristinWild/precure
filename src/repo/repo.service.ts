@@ -3,8 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs-extra';
 import type { Archiver } from 'archiver';
@@ -20,6 +22,8 @@ const REPOSITORY_NOT_INITIALIZED =
 const LOCK_RETRY_MS = 250;
 const DEFAULT_LOCK_WAIT_TIMEOUT_MS = 10 * 1000;
 const STALE_LOCK_MS = 20 * 60 * 1000;
+const DEFAULT_MEMORY_DOWNLOAD_TTL_SECONDS = 5 * 60;
+const MAX_MEMORY_DOWNLOAD_TTL_SECONDS = 15 * 60;
 
 const createArchive = require('archiver') as (
   format: 'zip',
@@ -41,6 +45,12 @@ type RepositoryStatistics = {
   fileCount?: number;
   externalPackageCount?: number;
   modules?: string[];
+};
+
+type MemoryDownloadClaims = {
+  repoId: string;
+  expiresAt: number;
+  nonce: string;
 };
 
 @Injectable()
@@ -359,6 +369,106 @@ export class RepoService {
     );
     archive.directory(memoryPath, 'memory');
     return archive;
+  }
+
+  async createMemoryDownloadLink(repoId: string, publicBaseUrl: string) {
+    await this.initializedRepositoryPath(repoId);
+
+    const configuredTtl = Number.parseInt(
+      process.env.MEMORY_DOWNLOAD_URL_TTL_SECONDS ?? '',
+      10,
+    );
+    const ttlSeconds =
+      Number.isFinite(configuredTtl) && configuredTtl > 0
+        ? Math.min(configuredTtl, MAX_MEMORY_DOWNLOAD_TTL_SECONDS)
+        : DEFAULT_MEMORY_DOWNLOAD_TTL_SECONDS;
+    const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+    const token = this.signMemoryDownloadClaims({
+      repoId,
+      expiresAt,
+      nonce: randomBytes(16).toString('base64url'),
+    });
+    const baseUrl = publicBaseUrl.replace(/\/+$/, '');
+
+    return {
+      success: true,
+      repoId,
+      filename: `precure-memory-${repoId}.zip`,
+      mimeType: 'application/zip',
+      downloadUrl: `${baseUrl}/repo/memory/file?token=${encodeURIComponent(token)}`,
+      expiresAt: new Date(expiresAt * 1000).toISOString(),
+      instructions:
+        'Open downloadUrl before expiresAt to download the complete Precure memory ZIP.',
+    };
+  }
+
+  verifyMemoryDownloadToken(token: string): string {
+    try {
+      const [encodedClaims, encodedSignature, ...extra] = token.split('.');
+      if (!encodedClaims || !encodedSignature || extra.length) {
+        throw new Error('Malformed token');
+      }
+
+      const actualSignature = Buffer.from(encodedSignature, 'base64url');
+      const expectedSignature = createHmac(
+        'sha256',
+        this.memoryDownloadSigningKey(),
+      )
+        .update(encodedClaims)
+        .digest();
+      if (
+        actualSignature.length !== expectedSignature.length ||
+        !timingSafeEqual(actualSignature, expectedSignature)
+      ) {
+        throw new Error('Invalid signature');
+      }
+
+      const claims = JSON.parse(
+        Buffer.from(encodedClaims, 'base64url').toString('utf8'),
+      ) as Partial<MemoryDownloadClaims>;
+      if (
+        typeof claims.repoId !== 'string' ||
+        !/^[a-f0-9]{64}$/.test(claims.repoId) ||
+        typeof claims.expiresAt !== 'number' ||
+        claims.expiresAt <= Math.floor(Date.now() / 1000) ||
+        typeof claims.nonce !== 'string' ||
+        !claims.nonce
+      ) {
+        throw new Error('Invalid or expired claims');
+      }
+
+      return claims.repoId;
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
+      throw new UnauthorizedException(
+        'This memory download link is invalid or has expired.',
+      );
+    }
+  }
+
+  private signMemoryDownloadClaims(claims: MemoryDownloadClaims): string {
+    const encodedClaims = Buffer.from(JSON.stringify(claims)).toString(
+      'base64url',
+    );
+    const signature = createHmac('sha256', this.memoryDownloadSigningKey())
+      .update(encodedClaims)
+      .digest('base64url');
+    return `${encodedClaims}.${signature}`;
+  }
+
+  private memoryDownloadSigningKey(): Buffer {
+    const secret =
+      process.env.MEMORY_DOWNLOAD_SECRET?.trim() ||
+      process.env.OKX_SECRET_KEY?.trim();
+    if (!secret) {
+      throw new ServiceUnavailableException(
+        'Memory download links are not configured.',
+      );
+    }
+
+    return createHash('sha256')
+      .update(`precure-memory-download:${secret}`)
+      .digest();
   }
 
   private enrichCrossFunctionalContext(

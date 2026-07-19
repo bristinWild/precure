@@ -59,7 +59,7 @@ repository so updates do not race.
 | See how code is organized | Architecture Mapper (`get_architecture`) | Module relationships and architecture memories |
 | Understand what is changing | Repo Activity Timeline (`activity`) | Recent commits, releases, and change context |
 | Give a coding agent durable context | VibeMemory (`recall`) | Compact grounded snippets and relationships |
-| Keep or move a complete memory snapshot | Download Memory (`GET /repo/memory/download?repoId=<repoId>`) | A ZIP of generated memory JSON and metadata, without source code |
+| Keep or move a complete memory snapshot | Download Memory (`POST /repo/memory/download`) | A short-lived authenticated URL for a ZIP of generated memory JSON and metadata, without source code |
 
 ## Quick start for people
 
@@ -122,13 +122,35 @@ For a durable offline record, backup, or import into a compatible internal
 workflow, request:
 
 ```text
-GET https://precure-production.up.railway.app/repo/memory/download?repoId=<repoId>
+POST https://precure-production.up.railway.app/repo/memory/download
+Content-Type: application/json
+
+{"repoId":"<repoId>"}
 ```
 
-This flagship export costs 4 USDT0. The ZIP contains Precure's generated
-memory JSON records, `metadata.json`, and an export manifest. It intentionally
-does not include the repository checkout, source files, `.git` history, or any
-server secrets.
+This flagship export costs 4 USDT0. After payment, the response is compact JSON
+rather than raw binary data:
+
+```json
+{
+  "success": true,
+  "repoId": "<repoId>",
+  "filename": "precure-memory-<repoId>.zip",
+  "mimeType": "application/zip",
+  "downloadUrl": "https://precure-production.up.railway.app/repo/memory/file?token=<signed-token>",
+  "expiresAt": "<ISO-8601 timestamp>",
+  "instructions": "Open downloadUrl before expiresAt to download the complete Precure memory ZIP."
+}
+```
+
+Open `downloadUrl` before `expiresAt`; browsers download it as an attachment,
+and agents can save the response body as the provided filename. The URL is a
+short-lived bearer link, so do not publish it. It does not require a second
+payment.
+
+The ZIP contains Precure's generated memory JSON records, `metadata.json`, and
+an export manifest. It intentionally does not include the repository checkout,
+source files, `.git` history, or any server secrets.
 
 ## Important limits and good practice
 

@@ -45,7 +45,7 @@ The OKX.AI listing exposes fixed-price API services. They can share the same MCP
 | Architecture Mapper | `get_architecture` | Repository ID |
 | Repo Activity Timeline | `activity` | Repository ID |
 | VibeMemory Recall | `recall` | Repository ID and a coding-task query |
-| Download Memory | `GET /repo/memory/download?repoId=<repoId>` | Repository ID |
+| Download Memory | `POST /repo/memory/download` | Repository ID; returns a short-lived authenticated ZIP download URL |
 
 `sync_repo` refreshes the checked-out remote branch and rebuilds persistent local memory. Merged pull requests are included through the updated branch history; open pull requests require a separate GitHub integration.
 
@@ -116,7 +116,8 @@ clients can continue to use `/mcp` and `/vibememory/mcp`.
 | `GET` | `/repo/report?repoId=<repoId>` | Return gaps, dependency information, and activity |
 | `GET` | `/repo/architecture?repoId=<repoId>` | Return architecture and repository memories |
 | `GET` | `/repo/activity?repoId=<repoId>` | Return commit, release, and timeline memories |
-| `GET` | `/repo/memory/download?repoId=<repoId>` | Download a ZIP containing generated memory JSON and metadata only; it never includes cloned source code or `.git` history |
+| `POST` | `/repo/memory/download` | `{ "repoId": "…" }`; return a short-lived authenticated URL for the generated-memory ZIP |
+| `GET` | `/repo/memory/file?token=<signed-token>` | Stream the ZIP from the URL returned by the paid Download Memory call; no second payment is required |
 | `POST` | `/vibememory/recall` | `{ "repoId": "…", "query": "…", "maxResults": 5 }` |
 
 `repoId` must be a 64-character lowercase SHA-256 hexadecimal string. Unknown or uninitialized IDs return the guidance: `Repository memory is not initialized; run cliper init first.`
@@ -136,7 +137,7 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 | `GET /repo/report` | 0.25 USDT |
 | `GET /repo/architecture` | 0.25 USDT |
 | `GET /repo/activity` | 0.25 USDT |
-| `GET /repo/memory/download` | 4.00 USDT |
+| `GET` or `POST /repo/memory/download` | 4.00 USDT |
 | `GET` or `POST /mcp` | 0.25 USDT |
 | `GET` or `POST /vibememory/mcp` | 0.05 USDT |
 | `POST /vibememory/recall` | 0.05 USDT |
@@ -144,6 +145,12 @@ Set `PRECURE_PAYMENT_MODE=x402` to enable the OKX x402 Express middleware. In th
 Important: x402 middleware prices an HTTP route, not an individual JSON-RPC tool. The dedicated API routes above match the marketplace-listed fees directly. An MCP initialization request is also a `POST /mcp` request and is therefore challenged in x402 mode.
 
 An unpaid paid request should return `402` with a `PAYMENT-REQUIRED` header. This includes a plain `GET /mcp` endpoint probe, which allows OKX.AI's User-flow validator to verify that the endpoint is x402-gated. After a valid compatible payment, the payment SDK is expected to settle it and allow the request through with a settlement response header.
+
+After Download Memory is paid, the service returns JSON containing `filename`,
+`mimeType`, `downloadUrl`, and `expiresAt`. Open `downloadUrl` before it expires
+to receive the ZIP as an attachment. The signed file URL is not separately
+x402-gated because possession of its short-lived token proves the paid call
+issued it.
 
 ### Current free-tier behavior
 

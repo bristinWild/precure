@@ -17,6 +17,8 @@ describe('RepoController', () => {
     getArchitecture: jest.fn(),
     activity: jest.fn(),
     createMemoryArchive: jest.fn(),
+    createMemoryDownloadLink: jest.fn(),
+    verifyMemoryDownloadToken: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -53,5 +55,6 @@ describe('RepoController', () => {
     expect(typeof controller.activityFromBody).toBe('function');
     expect(typeof controller.downloadMemoryFromQuery).toBe('function');
     expect(typeof controller.downloadMemoryFromBody).toBe('function');
+    expect(typeof controller.downloadMemoryFile).toBe('function');
   });
 });

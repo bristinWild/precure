@@ -232,18 +232,17 @@ export function configurePayments(express: Express): void {
         ),
         'GET /repo/memory/download': route(
           PRICES.memoryDownload,
-          'Download a complete Precure repository memory export',
-          repoIdQueryInput(),
-          'application/zip',
+          'Create a secure link for a complete Precure repository memory export',
+          repoIdQueryInput(memoryDownloadOutputExample()),
         ),
         'POST /repo/memory/download': route(
           PRICES.memoryDownload,
-          'Download a complete Precure repository memory export',
+          'Create a secure link for a complete Precure repository memory export',
           postInput(
             { repoId: 'repository-id-from-repo-memory-indexer' },
             repoIdBodySchema(),
+            memoryDownloadOutputExample(),
           ),
-          'application/zip',
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
         'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
@@ -330,13 +329,14 @@ function objectSchema(properties: Record<string, unknown>, required: string[]) {
 function postInput(
   input: Record<string, unknown>,
   inputSchema: Record<string, unknown>,
+  outputExample: Record<string, unknown> = { ok: true },
 ) {
   return declareDiscoveryExtension({
     bodyType: 'json',
     input,
     inputSchema,
     output: {
-      example: { ok: true },
+      example: outputExample,
     },
   }) as Record<string, unknown>;
 }
@@ -408,12 +408,27 @@ function vibeMemoryQueryInput() {
   }) as Record<string, unknown>;
 }
 
-function repoIdQueryInput() {
+function repoIdQueryInput(
+  outputExample: Record<string, unknown> = { ok: true },
+) {
   return declareDiscoveryExtension({
     input: { repoId: 'repository-id-from-repo-memory-indexer' },
     inputSchema: repoIdBodySchema(),
     output: {
-      example: { ok: true },
+      example: outputExample,
     },
   }) as Record<string, unknown>;
+}
+
+function memoryDownloadOutputExample() {
+  return {
+    success: true,
+    repoId: 'repository-id-from-repo-memory-indexer',
+    filename: 'precure-memory-repository-id.zip',
+    mimeType: 'application/zip',
+    downloadUrl:
+      'https://precure-production.up.railway.app/repo/memory/file?token=signed-short-lived-token',
+    expiresAt: '2026-07-19T12:00:00.000Z',
+    instructions: 'Open downloadUrl before expiresAt to download the ZIP.',
+  };
 }
