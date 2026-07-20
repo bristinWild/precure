@@ -70,7 +70,11 @@ export function configurePayments(express: Express): void {
     apiKey: OKX_API_KEY,
     secretKey: OKX_SECRET_KEY,
     passphrase: OKX_PASSPHRASE,
-    syncSettle: true,
+    // The SDK's asynchronous settlement mode returns the verified resource
+    // immediately with a pending settlement receipt. Waiting for an X Layer
+    // confirmation here made otherwise successful marketplace calls exceed
+    // the OKX.AI review timeout.
+    syncSettle: false,
   });
   const resourceServer = new x402ResourceServer(facilitator).register(
     NETWORK,
@@ -79,7 +83,7 @@ export function configurePayments(express: Express): void {
   // Include standard x402 v2 discovery metadata in each challenge.  This tells
   // payment clients how to preserve a service's input when replaying the paid
   // request, rather than leaving a POST body or GET query empty after signing.
-  resourceServer.registerExtension(bazaarResourceServerExtension as never);
+  resourceServer.registerExtension(bazaarResourceServerExtension);
 
   express.use(
     createFreeTierMiddleware(Number.isNaN(freeCalls) ? 3 : freeCalls),
@@ -245,7 +249,11 @@ export function configurePayments(express: Express): void {
           ),
         ),
         'GET /mcp': route(PRICES.mcp, 'Open or resume a Precure MCP session'),
-        'POST /mcp': route(PRICES.mcp, 'Call a Precure MCP tool'),
+        'POST /mcp': route(
+          PRICES.mcp,
+          'Call a Precure MCP tool',
+          mcpInitializeInput('precure'),
+        ),
         'GET /vibememory/mcp': route(
           PRICES.vibeMemory,
           'Open or resume a VibeMemory MCP session',
@@ -253,6 +261,7 @@ export function configurePayments(express: Express): void {
         'POST /vibememory/mcp': route(
           PRICES.vibeMemory,
           'Recall persistent repository memory for a coding agent',
+          mcpInitializeInput('vibememory'),
         ),
         'POST /vibememory/recall': route(
           PRICES.vibeMemory,
@@ -431,4 +440,57 @@ function memoryDownloadOutputExample() {
     expiresAt: '2026-07-19T12:00:00.000Z',
     instructions: 'Open downloadUrl before expiresAt to download the ZIP.',
   };
+}
+
+function mcpInitializeInput(serverName: string) {
+  const initialize = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2025-11-25',
+      capabilities: {},
+      clientInfo: {
+        name: 'okx-ai-client',
+        version: '1.0.0',
+      },
+    },
+  };
+
+  return postInput(
+    initialize,
+    objectSchema(
+      {
+        jsonrpc: { type: 'string', const: '2.0' },
+        id: { type: ['string', 'number'] },
+        method: { type: 'string', const: 'initialize' },
+        params: {
+          type: 'object',
+          properties: {
+            protocolVersion: { type: 'string' },
+            capabilities: { type: 'object' },
+            clientInfo: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                version: { type: 'string' },
+              },
+              required: ['name', 'version'],
+            },
+          },
+          required: ['protocolVersion', 'capabilities', 'clientInfo'],
+        },
+      },
+      ['jsonrpc', 'id', 'method', 'params'],
+    ),
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      result: {
+        protocolVersion: '2025-11-25',
+        capabilities: { tools: {} },
+        serverInfo: { name: serverName, version: '0.1.0' },
+      },
+    },
+  );
 }

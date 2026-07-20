@@ -17,20 +17,14 @@ export class McpService {
   constructor(private readonly repos: RepoService) {}
 
   async handle(request: Request, response: Response): Promise<void> {
-    return this.handleServer(
-      request,
-      response,
-      this.transports,
-      () => this.createServer(),
+    return this.handleServer(request, response, this.transports, () =>
+      this.createServer(),
     );
   }
 
   async handleVibeMemory(request: Request, response: Response): Promise<void> {
-    return this.handleServer(
-      request,
-      response,
-      this.vibeMemoryTransports,
-      () => this.createVibeMemoryServer(),
+    return this.handleServer(request, response, this.vibeMemoryTransports, () =>
+      this.createVibeMemoryServer(),
     );
   }
 
@@ -47,6 +41,17 @@ export class McpService {
     const sessionId = request.header('mcp-session-id');
 
     try {
+      this.ensurePostAcceptHeader(request);
+
+      // OKX.AI performs a paid endpoint replay before it has established an
+      // MCP session. Return a small, immediately readable capability document
+      // for that bare GET/POST probe. Real MCP initialize requests and all
+      // session-bound traffic continue through the standard transport below.
+      if (!sessionId && this.isCapabilityProbe(request)) {
+        response.status(200).json(this.capabilityDocument(request.path));
+        return;
+      }
+
       if (sessionId && transports[sessionId]) {
         await transports[sessionId].handleRequest(
           request,
@@ -97,6 +102,69 @@ export class McpService {
     }
   }
 
+  private isCapabilityProbe(request: Request): boolean {
+    if (request.method === 'GET' || request.method === 'HEAD') return true;
+    if (request.method !== 'POST') return false;
+
+    const body: unknown = request.body;
+    return (
+      body === undefined ||
+      body === null ||
+      (typeof body === 'object' &&
+        !Array.isArray(body) &&
+        Object.keys(body).length === 0)
+    );
+  }
+
+  private ensurePostAcceptHeader(request: Request): void {
+    if (request.method !== 'POST') return;
+
+    const accept = request.header('accept')?.toLowerCase() ?? '';
+    if (
+      !accept.includes('application/json') ||
+      !accept.includes('text/event-stream')
+    ) {
+      const value = 'application/json, text/event-stream';
+      request.headers.accept = value;
+
+      // The MCP SDK's Node adapter rebuilds its Web Request from rawHeaders,
+      // so keep that source in sync with Express's normalized header map.
+      const rawIndex = request.rawHeaders.findIndex(
+        (header, index) => index % 2 === 0 && header.toLowerCase() === 'accept',
+      );
+      if (rawIndex >= 0) request.rawHeaders[rawIndex + 1] = value;
+      else request.rawHeaders.push('Accept', value);
+    }
+  }
+
+  private capabilityDocument(path: string) {
+    const vibeMemory = path.includes('vibememory');
+    return {
+      ok: true,
+      status: 'ready',
+      service: vibeMemory ? 'Precure VibeMemory' : 'Precure',
+      protocol: 'MCP Streamable HTTP',
+      endpoint: path,
+      usage: {
+        initialize:
+          'POST a standard MCP initialize request, then retain the mcp-session-id response header.',
+        invoke:
+          'Use MCP tools/list and tools/call with the retained mcp-session-id.',
+      },
+      tools: vibeMemory
+        ? ['recall']
+        : [
+            'init_repo',
+            'ask',
+            'sync_repo',
+            'list_gaps',
+            'gap_report',
+            'get_architecture',
+            'activity',
+          ],
+    };
+  }
+
   private createServer(): McpServer {
     const server = new McpServer({ name: 'precure', version: '0.1.0' });
 
@@ -123,52 +191,82 @@ export class McpService {
         },
       },
       async ({ repoId, repo, question, audience }) =>
-        this.result(() => this.repos.ask(this.requireRepoId(repoId, repo), question, audience)),
+        this.result(() =>
+          this.repos.ask(this.requireRepoId(repoId, repo), question, audience),
+        ),
     );
     server.registerTool(
       'sync_repo',
       {
         description:
           'Update an initialized public repository from its remote branch and refresh its persistent memory.',
-        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
+        inputSchema: {
+          repoId: z.string().optional(),
+          repo: z.string().optional(),
+        },
       },
-      async ({ repoId, repo }) => this.result(() => this.repos.sync(this.requireRepoId(repoId, repo))),
+      async ({ repoId, repo }) =>
+        this.result(() => this.repos.sync(this.requireRepoId(repoId, repo))),
     );
     server.registerTool(
       'list_gaps',
       {
         description:
           'Return a cross-functional summary plus known repository gaps in high, medium, then low severity order.',
-        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
+        inputSchema: {
+          repoId: z.string().optional(),
+          repo: z.string().optional(),
+        },
       },
-      async ({ repoId, repo }) => this.result(() => this.repos.listGaps(this.requireRepoId(repoId, repo))),
+      async ({ repoId, repo }) =>
+        this.result(() =>
+          this.repos.listGaps(this.requireRepoId(repoId, repo)),
+        ),
     );
     server.registerTool(
       'gap_report',
       {
         description:
           'Return a cross-functional due-diligence summary plus gaps, dependency information, and activity.',
-        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
+        inputSchema: {
+          repoId: z.string().optional(),
+          repo: z.string().optional(),
+        },
       },
-      async ({ repoId, repo }) => this.result(() => this.repos.gapReport(this.requireRepoId(repoId, repo))),
+      async ({ repoId, repo }) =>
+        this.result(() =>
+          this.repos.gapReport(this.requireRepoId(repoId, repo)),
+        ),
     );
     server.registerTool(
       'get_architecture',
       {
         description:
           'Return a cross-functional plain-English architecture overview plus repository memories.',
-        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
+        inputSchema: {
+          repoId: z.string().optional(),
+          repo: z.string().optional(),
+        },
       },
-      async ({ repoId, repo }) => this.result(() => this.repos.getArchitecture(this.requireRepoId(repoId, repo))),
+      async ({ repoId, repo }) =>
+        this.result(() =>
+          this.repos.getArchitecture(this.requireRepoId(repoId, repo)),
+        ),
     );
     server.registerTool(
       'activity',
       {
         description:
           'Return a cross-functional plain-English activity overview plus commits, releases, and timeline memories.',
-        inputSchema: { repoId: z.string().optional(), repo: z.string().optional() },
+        inputSchema: {
+          repoId: z.string().optional(),
+          repo: z.string().optional(),
+        },
       },
-      async ({ repoId, repo }) => this.result(() => this.repos.activity(this.requireRepoId(repoId, repo))),
+      async ({ repoId, repo }) =>
+        this.result(() =>
+          this.repos.activity(this.requireRepoId(repoId, repo)),
+        ),
     );
 
     return server;
@@ -200,7 +298,11 @@ export class McpService {
       },
       async ({ repoId, repo, query, max_results }) =>
         this.result(() =>
-          this.repos.recall(this.requireRepoId(repoId, repo), query, max_results ?? 5),
+          this.repos.recall(
+            this.requireRepoId(repoId, repo),
+            query,
+            max_results ?? 5,
+          ),
         ),
     );
 
